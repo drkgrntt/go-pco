@@ -12,17 +12,25 @@ Wraps the [People v2 API](https://api.planningcenteronline.com/docs/apps/people)
 type PeopleParams struct {
 	FirstName         string
 	LastName          string
-	Email             string // matched against pco's search_name_or_email filter
+	Email             string // matched against PCO's search_name_or_email filter - fuzzy, name or email
 	SearchPhoneNumber string
+	Include           []string // e.g. "addresses", "emails", "phone_numbers", "primary_campus"
+	OrderBy           string   // a can_order_by field, e.g. "last_name" or "-created_at"
 	PerPage           int
 	Offset            int
 }
 ```
 
-`params` may be `nil` to list everyone (paginated). Any non-empty field adds a `where[]` filter; `PerPage`/`Offset` control pagination (see [Pagination](../README.md#pagination) in the root README).
+`params` may be `nil` to list everyone (paginated). Any non-empty field adds a `where[]` filter; `PerPage`/`Offset` control pagination (see [Pagination](../README.md#pagination) in the root README). `Include` pulls related resources into the response's `Included []any` array.
 
 ```go
-people, err := pco.GetPeople(&pco.PeopleParams{LastName: "Lovelace"})
+people, err := pco.GetPeople(&pco.PeopleParams{LastName: "Lovelace", Include: []string{"emails"}})
+```
+
+### `GetPerson(id string) (PersonResponse, error)`
+
+```go
+person, err := pco.GetPerson(personID)
 ```
 
 ### `CreatePerson(params *CreatePersonParams) (PersonCreateResponse, error)`
@@ -43,7 +51,7 @@ personID := person.Data.ID
 
 ### `PersonAttributes`
 
-The full set of attributes PCO returns for a person (name fields, `Status`, `Birthdate`, `Membership`, permission flags, `ResourcePermissionFlags`, timestamps, etc.) — see [people.go](../people.go) for the complete list. `PersonRelationships` currently exposes `PrimaryCampus` and `Gender`.
+The full set of attributes PCO returns for a person (name fields, `Status`, `Birthdate`, `Membership`, permission flags, `ResourcePermissionFlags`, timestamps, etc.) — see [people.go](../people.go) for the complete list. `PersonRelationships` covers every relationship the People#index/#show endpoints document as includable (`PrimaryCampus`, `InactiveReason`, `MaritalStatus`, `NamePrefix`, `NameSuffix`, `Organization`, `School` as `HasOneRelationship`; `Addresses`, `Emails`, `FieldData`, `Households`, `PersonApps`, `PhoneNumbers`, `PlatformNotifications`, `SocialProfiles` as `HasManyRelationship`) - each only has data once the matching value is passed to `PeopleParams.Include`; an unrequested relationship just decodes to its zero value.
 
 ## Addresses
 

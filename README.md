@@ -101,7 +101,7 @@ response, err := pco.NewRequest[pco.PersonListResponse]("GET", "https://api.plan
 
 ### Request bodies
 
-Create/update functions build their body with `pco.NewRequestBody(map[string]any{...})`, which wraps attributes in the `{"data":{"attributes":{...}}}` shape PCO's JSON:API expects. `any` values are used (not `string`) so booleans, numbers, and arrays serialize correctly.
+Create/update functions build their body with `pco.NewRequestBody(map[string]any{...})`, which wraps attributes in the `{"data":{"attributes":{...}}}` shape PCO's JSON:API expects. `any` values are used (not `string`) so booleans, numbers, and arrays serialize correctly. `pco.NewRequestBodyWithRelationships(attributes, relationships)` is the same, plus a `{"data":{"relationships":{...}}}` object, for creates/updates that link another resource (e.g. an Item linked to a Song) rather than just set plain attributes.
 
 ## Modules
 
@@ -117,7 +117,7 @@ Create/update functions build their body with `pco.NewRequestBody(map[string]any
 go test ./...
 ```
 
-Tests run against a local `httptest.Server` — no live PCO account or credentials needed. Each test file mirrors the resource file it covers (e.g. `plans_test.go` tests `plans.go`) and asserts the HTTP method, path, query string, and/or request body the function produced, plus that the response unmarshals correctly. `pco_test.go` holds the shared harness (`startTestServer`, `decodeBody`, `attributes`, `writeJSON`) and the core `NewRequest`/`QueryParams`/error-handling tests.
+Tests run against a local `httptest.Server` — no live PCO account or credentials needed. Each test file mirrors the resource file it covers (e.g. `plans_test.go` tests `plans.go`) and asserts the HTTP method, path, query string, and/or request body the function produced, plus that the response unmarshals correctly. `pco_test.go` holds the shared harness (`startTestServer`, `decodeBody`, `attributes`, `relationships`, `writeJSON`) and the core `NewRequest`/`QueryParams`/error-handling tests.
 
 ## Extending
 
