@@ -6,7 +6,7 @@ Wraps the [People v2 API](https://api.planningcenteronline.com/docs/apps/people)
 
 **[people.go](../people.go)**
 
-### `GetPeople(params *PeopleParams) (PersonListResponse, error)`
+### `GetPeople(ctx context.Context, params *PeopleParams) (PersonListResponse, error)`
 
 ```go
 type PeopleParams struct {
@@ -24,16 +24,16 @@ type PeopleParams struct {
 `params` may be `nil` to list everyone (paginated). Any non-empty field adds a `where[]` filter; `PerPage`/`Offset` control pagination (see [Pagination](../README.md#pagination) in the root README). `Include` pulls related resources into the response's `Included []any` array.
 
 ```go
-people, err := pco.GetPeople(&pco.PeopleParams{LastName: "Lovelace", Include: []string{"emails"}})
+people, err := pco.GetPeople(ctx, &pco.PeopleParams{LastName: "Lovelace", Include: []string{"emails"}})
 ```
 
-### `GetPerson(id string) (PersonResponse, error)`
+### `GetPerson(ctx context.Context, id string) (PersonResponse, error)`
 
 ```go
-person, err := pco.GetPerson(personID)
+person, err := pco.GetPerson(ctx, personID)
 ```
 
-### `CreatePerson(params *CreatePersonParams) (PersonCreateResponse, error)`
+### `CreatePerson(ctx context.Context, params *CreatePersonParams) (PersonCreateResponse, error)`
 
 ```go
 type CreatePersonParams struct {
@@ -45,7 +45,7 @@ type CreatePersonParams struct {
 `params` must not be `nil`.
 
 ```go
-person, err := pco.CreatePerson(&pco.CreatePersonParams{FirstName: "Ada", LastName: "Lovelace"})
+person, err := pco.CreatePerson(ctx, &pco.CreatePersonParams{FirstName: "Ada", LastName: "Lovelace"})
 personID := person.Data.ID
 ```
 
@@ -57,7 +57,7 @@ The full set of attributes PCO returns for a person (name fields, `Status`, `Bir
 
 **[addresses.go](../addresses.go)**
 
-### `CreateAddress(personID string, params *AddressCreateParams) (AddressCreateResponse, error)`
+### `CreateAddress(ctx context.Context, personID string, params *AddressCreateParams) (AddressCreateResponse, error)`
 
 ```go
 type AddressCreateParams struct {
@@ -73,7 +73,7 @@ type AddressCreateParams struct {
 ```
 
 ```go
-address, err := pco.CreateAddress(personID, &pco.AddressCreateParams{
+address, err := pco.CreateAddress(ctx, personID, &pco.AddressCreateParams{
 	AddressLine1: "123 Main St",
 	City:         "Springfield",
 	State:        "IL",
@@ -88,7 +88,7 @@ address, err := pco.CreateAddress(personID, &pco.AddressCreateParams{
 
 **[emails.go](../emails.go)**
 
-### `CreateEmail(personID string, params *EmailCreateParams) (EmailCreateResponse, error)`
+### `CreateEmail(ctx context.Context, personID string, params *EmailCreateParams) (EmailCreateResponse, error)`
 
 ```go
 type EmailCreateParams struct {
@@ -99,7 +99,7 @@ type EmailCreateParams struct {
 ```
 
 ```go
-email, err := pco.CreateEmail(personID, &pco.EmailCreateParams{
+email, err := pco.CreateEmail(ctx, personID, &pco.EmailCreateParams{
 	Address:  "ada@example.com",
 	Location: "Home",
 	Primary:  true,
@@ -110,7 +110,7 @@ email, err := pco.CreateEmail(personID, &pco.EmailCreateParams{
 
 **[phoneNumbers.go](../phoneNumbers.go)**
 
-### `CreatePhoneNumber(personID string, params *PhoneNumberCreateParams) (PhoneNumberCreateResponse, error)`
+### `CreatePhoneNumber(ctx context.Context, personID string, params *PhoneNumberCreateParams) (PhoneNumberCreateResponse, error)`
 
 ```go
 type PhoneNumberCreateParams struct {
@@ -121,7 +121,7 @@ type PhoneNumberCreateParams struct {
 ```
 
 ```go
-phone, err := pco.CreatePhoneNumber(personID, &pco.PhoneNumberCreateParams{
+phone, err := pco.CreatePhoneNumber(ctx, personID, &pco.PhoneNumberCreateParams{
 	Number:   "555-1234",
 	Location: "Mobile",
 	Primary:  true,

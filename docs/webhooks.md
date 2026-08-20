@@ -10,12 +10,12 @@ Two separate things are called "webhook subscription" and "event" here: the **`W
 
 | Function | Notes |
 |---|---|
-| `GetWebhookSubscriptions(params *WebhookSubscriptionsParams) (WebhookSubscriptionListResponse, error)` | `params.ApplicationID` filters by app; `nil` lists all. |
-| `GetWebhookSubscription(id string) (WebhookSubscriptionResponse, error)` | |
-| `CreateWebhookSubscription(params *CreateWebhookSubscriptionParams) (WebhookSubscriptionResponse, error)` | See below. |
-| `UpdateWebhookSubscriptionActive(id string, active bool) (WebhookSubscriptionResponse, error)` | `active` is the only attribute PCO allows updating. |
-| `DeleteWebhookSubscription(id string) error` | |
-| `RotateWebhookSubscriptionSecret(id string) (WebhookSubscriptionResponse, error)` | Invalidates the old `authenticity_secret` and returns the new one. |
+| `GetWebhookSubscriptions(ctx context.Context, params *WebhookSubscriptionsParams) (WebhookSubscriptionListResponse, error)` | `params.ApplicationID` filters by app; `nil` lists all. |
+| `GetWebhookSubscription(ctx context.Context, id string) (WebhookSubscriptionResponse, error)` | |
+| `CreateWebhookSubscription(ctx context.Context, params *CreateWebhookSubscriptionParams) (WebhookSubscriptionResponse, error)` | See below. |
+| `UpdateWebhookSubscriptionActive(ctx context.Context, id string, active bool) (WebhookSubscriptionResponse, error)` | `active` is the only attribute PCO allows updating. |
+| `DeleteWebhookSubscription(ctx context.Context, id string) error` | |
+| `RotateWebhookSubscriptionSecret(ctx context.Context, id string) (WebhookSubscriptionResponse, error)` | Invalidates the old `authenticity_secret` and returns the new one. |
 
 ```go
 type CreateWebhookSubscriptionParams struct {
@@ -26,7 +26,7 @@ type CreateWebhookSubscriptionParams struct {
 ```
 
 ```go
-sub, err := pco.CreateWebhookSubscription(&pco.CreateWebhookSubscriptionParams{
+sub, err := pco.CreateWebhookSubscription(ctx, &pco.CreateWebhookSubscriptionParams{
 	Name:   "people.v2.events.person.created",
 	URL:    "https://example.com/webhooks/pco",
 	Active: true,
@@ -40,12 +40,12 @@ sub, err := pco.CreateWebhookSubscription(&pco.CreateWebhookSubscriptionParams{
 
 **[availableEvents.go](../availableEvents.go)**
 
-### `GetAvailableEvents(params *AvailableEventsParams) (AvailableEventListResponse, error)`
+### `GetAvailableEvents(ctx context.Context, params *AvailableEventsParams) (AvailableEventListResponse, error)`
 
 Lists every event PCO can notify you about, across all products. Use an entry's `Attributes.Name` as `CreateWebhookSubscriptionParams.Name`.
 
 ```go
-events, err := pco.GetAvailableEvents(nil)
+events, err := pco.GetAvailableEvents(ctx, nil)
 for _, e := range events.Data {
 	fmt.Println(e.Attributes.Name, "-", e.Attributes.App)
 }
@@ -57,10 +57,10 @@ for _, e := range events.Data {
 
 | Function | Notes |
 |---|---|
-| `GetWebhookEvents(subscriptionID string, params *WebhookEventsParams) (WebhookEventListResponse, error)` | |
-| `GetWebhookEvent(subscriptionID, eventID string) (WebhookEventResponse, error)` | |
-| `IgnoreWebhookEvent(subscriptionID, eventID string) (WebhookEventResponse, error)` | Marks a pending event ignored so PCO stops retrying it. |
-| `RedeliverWebhookEvent(subscriptionID, eventID string) (WebhookEventResponse, error)` | Asks PCO to resend a failed/skipped event. |
+| `GetWebhookEvents(ctx context.Context, subscriptionID string, params *WebhookEventsParams) (WebhookEventListResponse, error)` | |
+| `GetWebhookEvent(ctx context.Context, subscriptionID, eventID string) (WebhookEventResponse, error)` | |
+| `IgnoreWebhookEvent(ctx context.Context, subscriptionID, eventID string) (WebhookEventResponse, error)` | Marks a pending event ignored so PCO stops retrying it. |
+| `RedeliverWebhookEvent(ctx context.Context, subscriptionID, eventID string) (WebhookEventResponse, error)` | Asks PCO to resend a failed/skipped event. |
 
 `WebhookEventAttributes.Status` is one of `pending`, `delivered`, `failed`, `skipped`, `duplicated` (and possibly others PCO adds later — treat it as an open string, not an enum).
 

@@ -12,16 +12,16 @@ A Service Type is a container for plans (e.g. "Sunday Service", "Youth Service")
 
 | Function | Notes |
 |---|---|
-| `GetServiceTypes(params *ServiceTypesParams) (ServiceTypeListResponse, error)` | `params` may be `nil`. |
-| `GetServiceType(id string) (ServiceTypeResponse, error)` | |
-| `CreateServiceType(params *CreateServiceTypeParams) (ServiceTypeResponse, error)` | `{Name string}` |
-| `UpdateServiceType(id string, params *UpdateServiceTypeParams) (ServiceTypeResponse, error)` | `{Name string}` |
-| `DeleteServiceType(id string) error` | |
+| `GetServiceTypes(ctx context.Context, params *ServiceTypesParams) (ServiceTypeListResponse, error)` | `params` may be `nil`. |
+| `GetServiceType(ctx context.Context, id string) (ServiceTypeResponse, error)` | |
+| `CreateServiceType(ctx context.Context, params *CreateServiceTypeParams) (ServiceTypeResponse, error)` | `{Name string}` |
+| `UpdateServiceType(ctx context.Context, id string, params *UpdateServiceTypeParams) (ServiceTypeResponse, error)` | `{Name string}` |
+| `DeleteServiceType(ctx context.Context, id string) error` | |
 
 `CreateServiceTypeParams`/`UpdateServiceTypeParams` only expose `Name` — PCO's docs didn't enumerate the full set of creatable/updatable attributes for this resource the way they did for Plan and WebhookSubscription, so this is a conservative starting point. `ServiceTypeAttributes` (read-only beyond `Name`) also includes `Frequency`, `Sequence`, `ArchivedAt`, `AttachmentTypesEnabled`, permission strings, etc. — see [serviceTypes.go](../serviceTypes.go).
 
 ```go
-st, err := pco.CreateServiceType(&pco.CreateServiceTypeParams{Name: "Youth Service"})
+st, err := pco.CreateServiceType(ctx, &pco.CreateServiceTypeParams{Name: "Youth Service"})
 ```
 
 ## Plans
@@ -32,11 +32,11 @@ A Plan is a single service event within a Service Type (e.g. "This Sunday"). Eve
 
 | Function | Notes |
 |---|---|
-| `GetPlans(serviceTypeID string, params *PlansParams) (PlanListResponse, error)` | |
-| `GetPlan(serviceTypeID, planID string) (PlanResponse, error)` | |
-| `CreatePlan(serviceTypeID string, params *CreatePlanParams) (PlanResponse, error)` | See below. |
-| `UpdatePlan(serviceTypeID, planID string, params *UpdatePlanParams) (PlanResponse, error)` | See below. |
-| `DeletePlan(serviceTypeID, planID string) error` | |
+| `GetPlans(ctx context.Context, serviceTypeID string, params *PlansParams) (PlanListResponse, error)` | |
+| `GetPlan(ctx context.Context, serviceTypeID, planID string) (PlanResponse, error)` | |
+| `CreatePlan(ctx context.Context, serviceTypeID string, params *CreatePlanParams) (PlanResponse, error)` | See below. |
+| `UpdatePlan(ctx context.Context, serviceTypeID, planID string, params *UpdatePlanParams) (PlanResponse, error)` | See below. |
+| `DeletePlan(ctx context.Context, serviceTypeID, planID string) error` | |
 
 ```go
 type CreatePlanParams struct {
@@ -56,10 +56,10 @@ type UpdatePlanParams struct {
 `Public`/`RemindersDisabled` on `UpdatePlanParams` are pointers so "leave unchanged" and "explicitly set to false" are distinguishable — only non-nil fields are sent.
 
 ```go
-plan, err := pco.CreatePlan(serviceTypeID, &pco.CreatePlanParams{Title: "This Sunday", Public: true})
+plan, err := pco.CreatePlan(ctx, serviceTypeID, &pco.CreatePlanParams{Title: "This Sunday", Public: true})
 
 remindersDisabled := true
-plan, err = pco.UpdatePlan(serviceTypeID, plan.Data.ID, &pco.UpdatePlanParams{RemindersDisabled: &remindersDisabled})
+plan, err = pco.UpdatePlan(ctx, serviceTypeID, plan.Data.ID, &pco.UpdatePlanParams{RemindersDisabled: &remindersDisabled})
 ```
 
 `PlanAttributes` also includes read-only fields like `Dates`, `ItemsCount`, `PlanPeopleCount`, `NeededPositionsCount`, `SortDate`. `PlanRelationships` covers `ServiceType`, `Series`, `PreviousPlan`/`NextPlan`, `CreatedBy`/`UpdatedBy`.
@@ -72,9 +72,9 @@ A Song is an organization-wide song in the library (not scoped to a service type
 
 | Function | Notes |
 |---|---|
-| `GetSongs(params *SongsParams) (SongListResponse, error)` | `params` may be `nil`. |
-| `GetSong(id string) (SongResponse, error)` | |
-| `CreateSong(params *CreateSongParams) (SongResponse, error)` | See below. |
+| `GetSongs(ctx context.Context, params *SongsParams) (SongListResponse, error)` | `params` may be `nil`. |
+| `GetSong(ctx context.Context, id string) (SongResponse, error)` | |
+| `CreateSong(ctx context.Context, params *CreateSongParams) (SongResponse, error)` | See below. |
 
 ```go
 type SongsParams struct {
@@ -95,9 +95,9 @@ type CreateSongParams struct {
 ```
 
 ```go
-songs, err := pco.GetSongs(&pco.SongsParams{OrderBy: "-created_at", PerPage: 25})
+songs, err := pco.GetSongs(ctx, &pco.SongsParams{OrderBy: "-created_at", PerPage: 25})
 
-song, err := pco.CreateSong(&pco.CreateSongParams{Title: "Great Are You Lord", Author: "Leslie Jordan, David Leonard, Jason Ingram"})
+song, err := pco.CreateSong(ctx, &pco.CreateSongParams{Title: "Great Are You Lord", Author: "Leslie Jordan, David Leonard, Jason Ingram"})
 ```
 
 `CreateSongParams` has no `Notes` field on purpose - PCO rejects `notes` on create outright (`"notes cannot be assigned"`, confirmed live); a song's notes are their own sub-resource, not a plain Song attribute. Every other field is only sent when set (`Hidden` only when `true`), so a params struct with just `Title` set sends just `title`.
@@ -112,12 +112,12 @@ An Item is a row within a Plan's order of service (a song, a header, media, or a
 
 | Function | Notes |
 |---|---|
-| `GetItems(serviceTypeID, planID string, params *ItemsParams) (ItemListResponse, error)` | |
-| `GetItem(serviceTypeID, planID, itemID string) (ItemResponse, error)` | |
-| `CreateItem(serviceTypeID, planID string, params *CreateItemParams) (ItemResponse, error)` | |
-| `UpdateItem(serviceTypeID, planID, itemID string, params *UpdateItemParams) (ItemResponse, error)` | No `Sequence` field - see `ReorderItems` below. |
-| `DeleteItem(serviceTypeID, planID, itemID string) error` | |
-| `ReorderItems(serviceTypeID, planID string, itemIDs []string) error` | See below. |
+| `GetItems(ctx context.Context, serviceTypeID, planID string, params *ItemsParams) (ItemListResponse, error)` | |
+| `GetItem(ctx context.Context, serviceTypeID, planID, itemID string) (ItemResponse, error)` | |
+| `CreateItem(ctx context.Context, serviceTypeID, planID string, params *CreateItemParams) (ItemResponse, error)` | |
+| `UpdateItem(ctx context.Context, serviceTypeID, planID, itemID string, params *UpdateItemParams) (ItemResponse, error)` | No `Sequence` field - see `ReorderItems` below. |
+| `DeleteItem(ctx context.Context, serviceTypeID, planID, itemID string) error` | |
+| `ReorderItems(ctx context.Context, serviceTypeID, planID string, itemIDs []string) error` | See below. |
 
 ```go
 type CreateItemParams struct {
@@ -149,7 +149,7 @@ const (
 ```
 
 ```go
-item, err := pco.CreateItem(serviceTypeID, planID, &pco.CreateItemParams{
+item, err := pco.CreateItem(ctx, serviceTypeID, planID, &pco.CreateItemParams{
 	Title:           "Opening Song",
 	ItemType:        pco.ItemTypeSong,
 	ServicePosition: pco.ServicePositionPre,
@@ -161,7 +161,7 @@ item, err := pco.CreateItem(serviceTypeID, planID, &pco.CreateItemParams{
 `UpdateItemParams` deliberately has no `Sequence` field - PATCHing an item's sequence directly is rejected by PCO (`"sequence cannot be assigned"`, confirmed live). Reordering is its own bulk action:
 
 ```go
-err := pco.ReorderItems(serviceTypeID, planID, []string{item1.ID, item2.ID, item3.ID})
+err := pco.ReorderItems(ctx, serviceTypeID, planID, []string{item1.ID, item2.ID, item3.ID})
 ```
 
 `ReorderItems` calls PCO's `item_reorder` plan action - confirmed directly against PCO's own machine-readable documentation API (`GET .../services/v2/documentation/2018-11-01/vertices/plan`, itself a plain JSON endpoint even though the human-facing docs site is a JS SPA that isn't crawlable). It expects **every** item's id in the plan, in the final order - there's no documented partial/delta form, so omitting an item likely misplaces it rather than leaving it alone.
@@ -174,10 +174,10 @@ A Team is a group people serve on within a Service Type (e.g. "Band", "Tech", "H
 
 | Function | Notes |
 |---|---|
-| `GetTeams(serviceTypeID string, params *TeamsParams) (TeamListResponse, error)` | `params` may be `nil`. |
+| `GetTeams(ctx context.Context, serviceTypeID string, params *TeamsParams) (TeamListResponse, error)` | `params` may be `nil`. |
 
 ```go
-teams, err := pco.GetTeams(serviceTypeID, &pco.TeamsParams{OrderBy: "name"})
+teams, err := pco.GetTeams(ctx, serviceTypeID, &pco.TeamsParams{OrderBy: "name"})
 ```
 
 `TeamAttributes` covers `Name`, `Sequence`, `ScheduleTo` (`"plan"` for a normal plan-level team, or a split/"time"-level team), `DefaultStatus` (the default `PlanPerson.status` for new assignments on this team), `SecureTeam`, `RehearsalTeam`, and more.
@@ -190,10 +190,10 @@ A Team Position is a named slot within a Team (e.g. "Drums", "Sound Tech"). Read
 
 | Function | Notes |
 |---|---|
-| `GetTeamPositions(teamID string, params *TeamPositionsParams) (TeamPositionListResponse, error)` | `params` may be `nil`. |
+| `GetTeamPositions(ctx context.Context, teamID string, params *TeamPositionsParams) (TeamPositionListResponse, error)` | `params` may be `nil`. |
 
 ```go
-positions, err := pco.GetTeamPositions(teamID, &pco.TeamPositionsParams{OrderBy: "name"})
+positions, err := pco.GetTeamPositions(ctx, teamID, &pco.TeamPositionsParams{OrderBy: "name"})
 ```
 
 ## Needed Positions
@@ -204,10 +204,10 @@ A Needed Position is one open slot a plan needs filled - team + position name + 
 
 | Function | Notes |
 |---|---|
-| `GetNeededPositions(serviceTypeID, planID string, params *NeededPositionsParams) (NeededPositionListResponse, error)` | `params` may be `nil`. |
+| `GetNeededPositions(ctx context.Context, serviceTypeID, planID string, params *NeededPositionsParams) (NeededPositionListResponse, error)` | `params` may be `nil`. |
 
 ```go
-needed, err := pco.GetNeededPositions(serviceTypeID, planID, nil)
+needed, err := pco.GetNeededPositions(ctx, serviceTypeID, planID, nil)
 ```
 
 `NeededPositionAttributes` covers `Quantity`, `TeamPositionName` (plain text, matching `PlanPerson.team_position_name` - not a relationship to a Team Position id), and `ScheduledTo`. `NeededPositionRelationships` covers `Team` and `Plan`.
@@ -220,10 +220,10 @@ A Team Member (PCO's `PlanPerson` type) is a person actually assigned to fill a 
 
 | Function | Notes |
 |---|---|
-| `GetTeamMembers(serviceTypeID, planID string, params *TeamMembersParams) (PlanPersonListResponse, error)` | `params` may be `nil`. |
-| `CreateTeamMember(serviceTypeID, planID string, params *CreateTeamMemberParams) (PlanPersonResponse, error)` | See below. |
-| `DeleteTeamMember(serviceTypeID, planID, planPersonID string) error` | See note below. |
-| `GetPersonPlanPeople(personID string, params *PersonPlanPeopleParams) (PlanPersonListResponse, error)` | A person's own assignment history - see below. |
+| `GetTeamMembers(ctx context.Context, serviceTypeID, planID string, params *TeamMembersParams) (PlanPersonListResponse, error)` | `params` may be `nil`. |
+| `CreateTeamMember(ctx context.Context, serviceTypeID, planID string, params *CreateTeamMemberParams) (PlanPersonResponse, error)` | See below. |
+| `DeleteTeamMember(ctx context.Context, serviceTypeID, planID, planPersonID string) error` | See note below. |
+| `GetPersonPlanPeople(ctx context.Context, personID string, params *PersonPlanPeopleParams) (PlanPersonListResponse, error)` | A person's own assignment history - see below. |
 
 ```go
 type CreateTeamMemberParams struct {
@@ -235,13 +235,13 @@ type CreateTeamMemberParams struct {
 ```
 
 ```go
-member, err := pco.CreateTeamMember(serviceTypeID, planID, &pco.CreateTeamMemberParams{
+member, err := pco.CreateTeamMember(ctx, serviceTypeID, planID, &pco.CreateTeamMemberParams{
 	PersonID:         personID,
 	TeamID:           teamID,
 	TeamPositionName: "Drums",
 })
 
-err = pco.DeleteTeamMember(serviceTypeID, planID, member.Data.ID)
+err = pco.DeleteTeamMember(ctx, serviceTypeID, planID, member.Data.ID)
 ```
 
 **`DeleteTeamMember` uses the plan-scoped path, not PCO's documented person-scoped one.** PCO's docs point delete at `/people/{person_id}/plan_people/{plan_person_id}`, but that path returned a 404 live against a real (older/past) plan's assignment while the plan-scoped `/service_types/{id}/plans/{id}/team_members/{id}` path it was created on deleted it without issue. Confirmed reliable regardless of the plan's age, so this SDK always uses the plan-scoped path for both create and delete.
@@ -249,7 +249,7 @@ err = pco.DeleteTeamMember(serviceTypeID, planID, member.Data.ID)
 `PlanPersonStatus*` covers the documented `status` values - PCO accepts either the letter code or the word, and returns the letter code in responses (confirmed live), so these consts use that form: `PlanPersonStatusConfirmed` (`"C"`), `PlanPersonStatusUnconfirmed` (`"U"`), `PlanPersonStatusDeclined` (`"D"`).
 
 ```go
-history, err := pco.GetPersonPlanPeople(personID, &pco.PersonPlanPeopleParams{
+history, err := pco.GetPersonPlanPeople(ctx, personID, &pco.PersonPlanPeopleParams{
 	TeamID:  teamID,
 	Include: []string{"plan"}, // pulls each assignment's Plan (with sort_date) into Included, one call instead of N
 })
@@ -267,13 +267,13 @@ Not addressable as a top-level resource, same as Team Position - every function 
 
 | Function | Notes |
 |---|---|
-| `GetPersonTeamPositionAssignments(teamID, teamPositionID string, params *PersonTeamPositionAssignmentsParams) (PersonTeamPositionAssignmentListResponse, error)` | `params` may be `nil`. Also the position's "who's eligible" list. |
-| `CreatePersonTeamPositionAssignment(teamID, teamPositionID string, params *CreatePersonTeamPositionAssignmentParams) (PersonTeamPositionAssignmentResponse, error)` | Also makes the person eligible for the position - PCO doesn't separate the two. |
-| `UpdatePersonTeamPositionAssignment(teamID, teamPositionID, assignmentID string, params *UpdatePersonTeamPositionAssignmentParams) (PersonTeamPositionAssignmentResponse, error)` | |
-| `DeletePersonTeamPositionAssignment(teamID, teamPositionID, assignmentID string) error` | Removes eligibility entirely. |
+| `GetPersonTeamPositionAssignments(ctx context.Context, teamID, teamPositionID string, params *PersonTeamPositionAssignmentsParams) (PersonTeamPositionAssignmentListResponse, error)` | `params` may be `nil`. Also the position's "who's eligible" list. |
+| `CreatePersonTeamPositionAssignment(ctx context.Context, teamID, teamPositionID string, params *CreatePersonTeamPositionAssignmentParams) (PersonTeamPositionAssignmentResponse, error)` | Also makes the person eligible for the position - PCO doesn't separate the two. |
+| `UpdatePersonTeamPositionAssignment(ctx context.Context, teamID, teamPositionID, assignmentID string, params *UpdatePersonTeamPositionAssignmentParams) (PersonTeamPositionAssignmentResponse, error)` | |
+| `DeletePersonTeamPositionAssignment(ctx context.Context, teamID, teamPositionID, assignmentID string) error` | Removes eligibility entirely. |
 
 ```go
-assignment, err := pco.CreatePersonTeamPositionAssignment(teamID, teamPositionID, &pco.CreatePersonTeamPositionAssignmentParams{
+assignment, err := pco.CreatePersonTeamPositionAssignment(ctx, teamID, teamPositionID, &pco.CreatePersonTeamPositionAssignmentParams{
 	PersonID:           personID,
 	SchedulePreference: pco.SchedulePreferenceEveryOtherWeek,
 })
@@ -291,10 +291,10 @@ A Blockout is a person's self-declared unavailability window. Read-only in this 
 
 | Function | Notes |
 |---|---|
-| `GetBlockouts(personID string, params *BlockoutsParams) (BlockoutListResponse, error)` | `params` may be `nil`. `Filter`: `"past"` or `"future"`. |
+| `GetBlockouts(ctx context.Context, personID string, params *BlockoutsParams) (BlockoutListResponse, error)` | `params` may be `nil`. `Filter`: `"past"` or `"future"`. |
 
 ```go
-blockouts, err := pco.GetBlockouts(personID, &pco.BlockoutsParams{Filter: "future"})
+blockouts, err := pco.GetBlockouts(ctx, personID, &pco.BlockoutsParams{Filter: "future"})
 ```
 
 `BlockoutAttributes` covers `Reason`, `StartsAt`/`EndsAt` (a single non-recurring window), and `RepeatFrequency`/`RepeatInterval`/`RepeatPeriod`/`RepeatUntil` for a recurring blockout - this SDK decodes the recurrence fields but doesn't expand them into individual dates; that's on the caller.

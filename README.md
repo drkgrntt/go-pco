@@ -21,7 +21,16 @@ export PCO_CLIENT_ID=your_application_id
 export PCO_SECRET=your_secret
 ```
 
-These can be a [Personal Access Token](https://developer.planning.center/docs/#/overview/authentication) (simplest, good for scripts/single-org use — the "app ID" and "secret" PCO gives you when you create a PAT) or an OAuth application's client credentials. The SDK doesn't currently support the OAuth authorization-code flow itself; if you need per-user OAuth tokens you'll need to obtain them yourself and set these two env vars per-request (e.g. via `os.Setenv` before each call, or fork `NewRequest`).
+These can be a [Personal Access Token](https://developer.planning.center/docs/#/overview/authentication) (simplest, good for scripts/single-org use — the "app ID" and "secret" PCO gives you when you create a PAT) or an OAuth application's client credentials. This is the fallback auth every call uses when nothing more specific is provided.
+
+For a real multi-user app - each signed-in person's requests acting as them, against their own PCO organization and permissions, rather than everyone sharing one PAT - carry their OAuth access token through `context.Context` instead:
+
+```go
+ctx := pco.WithAccessToken(context.Background(), userAccessToken)
+people, err := pco.GetPeople(ctx, &pco.PeopleParams{LastName: "Lovelace"})
+```
+
+When a context carries a token this way, every function authenticates with `Authorization: Bearer <token>` instead of the PAT - per call, not per-process, so concurrent requests for different users on the same server never cross streams. The SDK doesn't handle obtaining that token itself (the OAuth authorization-code flow, or refreshing an expired one) - that's still on the caller.
 
 ## Quick start
 
@@ -36,7 +45,7 @@ import (
 )
 
 func main() {
-	people, err := pco.GetPeople(&pco.PeopleParams{LastName: "Lovelace"})
+	people, err := pco.GetPeople(ctx, &pco.PeopleParams{LastName: "Lovelace"})
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -56,7 +65,7 @@ Every resource file follows the same shape: an `Attributes` struct, a `Relations
 Any non-2xx response is returned as a `*pco.RequestError`, which carries the parsed JSON:API `errors[]` array from the response body:
 
 ```go
-_, err := pco.CreatePerson(&pco.CreatePersonParams{})
+_, err := pco.CreatePerson(ctx, &pco.CreatePersonParams{})
 var reqErr *pco.RequestError
 if errors.As(err, &reqErr) {
 	fmt.Println(reqErr.StatusCode) // e.g. 422
@@ -73,7 +82,7 @@ List params structs (`PeopleParams`, `PlansParams`, etc.) accept `PerPage` and `
 ```go
 params := &pco.PeopleParams{PerPage: 100}
 for {
-	page, err := pco.GetPeople(params)
+	page, err := pco.GetPeople(ctx, params)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -82,7 +91,7 @@ for {
 	if page.Links.Next == "" {
 		break
 	}
-	page, err = pco.NewRequest[pco.PersonListResponse]("GET", page.Links.Next, nil)
+	page, err = pco.NewRequest[pco.PersonListResponse](ctx, "GET", page.Links.Next, nil)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -96,7 +105,7 @@ Internally, params get turned into `where[]`/`include`/`order`/`per_page`/`offse
 
 ```go
 q := pco.NewQueryParams().Where("first_name", "Ada").Include("emails").PerPage(25)
-response, err := pco.NewRequest[pco.PersonListResponse]("GET", "https://api.planningcenteronline.com/people/v2/people"+q.Encode(), nil)
+response, err := pco.NewRequest[pco.PersonListResponse](ctx, "GET", "https://api.planningcenteronline.com/people/v2/people"+q.Encode(), nil)
 ```
 
 ### Request bodies
