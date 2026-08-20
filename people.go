@@ -7,17 +7,31 @@ import (
 
 const peoplePath = "people/v2/people"
 
-type PrimaryCampus struct {
-	Data *General `json:"data"`
-}
-
-type Gender struct {
-	Data *General `json:"data"`
-}
-
+// PersonRelationships covers every relationship the People#index/#show
+// endpoints document as includable (see PeopleParams.Include) plus
+// PrimaryCampus, which PCO always links whether or not it's included. Each
+// field only has a non-nil/non-empty Data once the matching value is passed
+// to Include - PCO omits relationships that weren't requested from the
+// response entirely, so an unrequested field just decodes to its zero value.
 type PersonRelationships struct {
-	PrimaryCampus PrimaryCampus `json:"primary_campus"`
-	Gender        Gender        `json:"gender"`
+	// To-one relationships.
+	PrimaryCampus  HasOneRelationship `json:"primary_campus"`
+	InactiveReason HasOneRelationship `json:"inactive_reason"`
+	MaritalStatus  HasOneRelationship `json:"marital_status"`
+	NamePrefix     HasOneRelationship `json:"name_prefix"`
+	NameSuffix     HasOneRelationship `json:"name_suffix"`
+	Organization   HasOneRelationship `json:"organization"`
+	School         HasOneRelationship `json:"school"`
+
+	// To-many relationships.
+	Addresses             HasManyRelationship `json:"addresses"`
+	Emails                HasManyRelationship `json:"emails"`
+	FieldData             HasManyRelationship `json:"field_data"`
+	Households            HasManyRelationship `json:"households"`
+	PersonApps            HasManyRelationship `json:"person_apps"`
+	PhoneNumbers          HasManyRelationship `json:"phone_numbers"`
+	PlatformNotifications HasManyRelationship `json:"platform_notifications"`
+	SocialProfiles        HasManyRelationship `json:"social_profiles"`
 }
 
 type PersonAttributes struct {
@@ -71,6 +85,13 @@ type PersonListResponse struct {
 	Meta     Meta         `json:"meta"`
 }
 
+type PersonResponse struct {
+	Data     PersonData `json:"data"`
+	Included []any      `json:"included"`
+	Links    Links      `json:"links"`
+	Meta     Meta       `json:"meta"`
+}
+
 type PersonCreateResponse struct {
 	Data     PersonData `json:"data"`
 	Included []any      `json:"included"`
@@ -79,12 +100,23 @@ type PersonCreateResponse struct {
 }
 
 type PeopleParams struct {
-	FirstName         string
-	LastName          string
+	FirstName string
+	LastName  string
+	// Email is sent as PCO's `where[search_name_or_email]` filter, which
+	// fuzzy-matches against a person's name or email - not an exact email
+	// filter - so it also doubles as a general "search by name" query.
 	Email             string
 	SearchPhoneNumber string
-	PerPage           int
-	Offset            int
+	// Include adds related resources (e.g. "addresses", "emails",
+	// "phone_numbers", "primary_campus") to the response's "included" array.
+	// See https://developer.planning.center/docs/#/apps/people/2025-05-28/vertices/person
+	// for the full list PCO supports on this endpoint.
+	Include []string
+	// OrderBy sorts results by a can_order_by field (e.g. "last_name",
+	// "created_at"). Prefix with "-" for descending, e.g. "-created_at".
+	OrderBy string
+	PerPage int
+	Offset  int
 }
 
 func GetPeople(params *PeopleParams) (response PersonListResponse, err error) {
@@ -97,12 +129,22 @@ func GetPeople(params *PeopleParams) (response PersonListResponse, err error) {
 		Where("last_name", params.LastName).
 		Where("search_name_or_email", params.Email).
 		Where("search_phone_number", params.SearchPhoneNumber).
+		Include(params.Include...).
+		OrderBy(params.OrderBy).
 		PerPage(params.PerPage).
 		Offset(params.Offset)
 
 	url := fmt.Sprintf("%s/%s%s", baseURL, peoplePath, q.Encode())
 
 	response, err = NewRequest[PersonListResponse]("GET", url, nil)
+
+	return
+}
+
+func GetPerson(id string) (response PersonResponse, err error) {
+	url := fmt.Sprintf("%s/%s/%s", baseURL, peoplePath, id)
+
+	response, err = NewRequest[PersonResponse]("GET", url, nil)
 
 	return
 }

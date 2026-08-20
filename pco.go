@@ -31,6 +31,20 @@ type General struct {
 	ID   string `json:"id"`
 }
 
+// HasOneRelationship is the JSON:API shape of a to-one relationship, e.g.
+// {"data": {"type": "Campus", "id": "1"}} or {"data": null}.
+type HasOneRelationship struct {
+	Data *General `json:"data"`
+}
+
+// HasManyRelationship is the JSON:API shape of a to-many relationship, e.g.
+// {"data": [{"type": "Email", "id": "1"}, ...]}. This is the shape PCO uses
+// for relationships whose resources you can pull in with ?include=, such as
+// a person's emails/addresses/phone_numbers.
+type HasManyRelationship struct {
+	Data []General `json:"data"`
+}
+
 // Links appears on both single-resource responses (Self/HTML) and
 // collection responses (Self/Next/Prev), so all four fields are optional
 // depending on which kind of response it was unmarshaled from.
@@ -60,6 +74,16 @@ type RequestBody struct {
 // expected by PCO's create/update endpoints.
 func NewRequestBody(attributes map[string]any) RequestBody {
 	return RequestBody{Data: RequestData{Attributes: attributes}}
+}
+
+// NewRequestBodyWithRelationships is like NewRequestBody but also sets the
+// JSON:API `relationships` object, for creates/updates that need to link
+// another resource (e.g. an Item linked to a library Song) rather than just
+// set plain attributes. Each value in relationships should be shaped like
+// `map[string]any{"data": map[string]any{"type": "...", "id": "..."}}`
+// (or a nil/omitted "data" to clear a to-one relationship).
+func NewRequestBodyWithRelationships(attributes map[string]any, relationships map[string]any) RequestBody {
+	return RequestBody{Data: RequestData{Attributes: attributes, Relationships: relationships}}
 }
 
 // APIError is a single JSON:API error object, as returned in the top-level
@@ -126,6 +150,16 @@ func (q *QueryParams) Include(fields ...string) *QueryParams {
 func (q *QueryParams) OrderBy(field string) *QueryParams {
 	if field != "" {
 		q.values.Set("order", field)
+	}
+	return q
+}
+
+// Filter adds PCO's top-level `filter=` param - distinct from Where's
+// `where[field]=`. Some endpoints document named filters here (e.g. Plans'
+// "past"/"future") rather than as where[] filters.
+func (q *QueryParams) Filter(value string) *QueryParams {
+	if value != "" {
+		q.values.Set("filter", value)
 	}
 	return q
 }

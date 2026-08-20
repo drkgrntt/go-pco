@@ -67,6 +67,41 @@ func TestCreateItem(t *testing.T) {
 	}
 }
 
+func TestCreateItemWithSong(t *testing.T) {
+	startTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		body := decodeBody(t, r)
+
+		attrs := attributes(t, body)
+		if attrs["title"] != "Opening Song" {
+			t.Errorf("expected title Opening Song, got %v", attrs["title"])
+		}
+
+		rels := relationships(t, body)
+		song, ok := rels["song"].(map[string]any)
+		if !ok {
+			t.Fatalf("expected relationships.song object, got %v", rels)
+		}
+		data, ok := song["data"].(map[string]any)
+		if !ok {
+			t.Fatalf("expected relationships.song.data object, got %v", song)
+		}
+		if data["type"] != "Song" || data["id"] != "song-1" {
+			t.Errorf("expected relationships.song.data {type: Song, id: song-1}, got %v", data)
+		}
+
+		writeJSON(t, w, http.StatusCreated, `{"data":{"type":"Item","id":"i-1","attributes":{"title":"Opening Song"}}}`)
+	})
+
+	_, err := CreateItem("st-1", "p-1", &CreateItemParams{
+		Title:    "Opening Song",
+		ItemType: ItemTypeSong,
+		SongID:   "song-1",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
 func TestCreateItemNilParams(t *testing.T) {
 	if _, err := CreateItem("st-1", "p-1", nil); err == nil {
 		t.Fatal("expected an error for nil params")
@@ -79,18 +114,78 @@ func TestUpdateItem(t *testing.T) {
 			t.Errorf("expected path %s, got %s", want, r.URL.Path)
 		}
 		attrs := attributes(t, decodeBody(t, r))
-		if attrs["sequence"] != float64(2) {
-			t.Errorf("expected sequence 2, got %v", attrs["sequence"])
+		if attrs["title"] != "Opening Song" {
+			t.Errorf("expected title Opening Song, got %v", attrs["title"])
 		}
-		writeJSON(t, w, http.StatusOK, `{"data":{"type":"Item","id":"i-1","attributes":{"sequence":2}}}`)
+		writeJSON(t, w, http.StatusOK, `{"data":{"type":"Item","id":"i-1","attributes":{"title":"Opening Song"}}}`)
 	})
 
-	response, err := UpdateItem("st-1", "p-1", "i-1", &UpdateItemParams{Sequence: 2})
+	response, err := UpdateItem("st-1", "p-1", "i-1", &UpdateItemParams{Title: "Opening Song"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if response.Data.Attributes.Sequence != 2 {
-		t.Errorf("expected sequence 2, got %d", response.Data.Attributes.Sequence)
+	if response.Data.Attributes.Title != "Opening Song" {
+		t.Errorf("expected title Opening Song, got %q", response.Data.Attributes.Title)
+	}
+}
+
+// TestUpdateItemPartial confirms unset fields are omitted from the request
+// entirely rather than sent as zero values - the whole point of the
+// pointer/empty-string convention on UpdateItemParams, since otherwise an
+// update meant to touch only one field would silently clobber the rest
+// back to blank in the real plan.
+func TestUpdateItemPartial(t *testing.T) {
+	startTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		attrs := attributes(t, decodeBody(t, r))
+		if len(attrs) != 1 {
+			t.Errorf("expected exactly one attribute set, got %v", attrs)
+		}
+		if attrs["length"] != float64(0) {
+			t.Errorf("expected length 0, got %v", attrs["length"])
+		}
+		writeJSON(t, w, http.StatusOK, `{"data":{"type":"Item","id":"i-1","attributes":{"length":0}}}`)
+	})
+
+	length := 0
+	if _, err := UpdateItem("st-1", "p-1", "i-1", &UpdateItemParams{Length: &length}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+// TestReorderItems asserts the exact request shape ReorderItems sends,
+// confirmed against PCO's own documentation API for the "item_reorder"
+// plan action - see ReorderItems' doc comment.
+func TestReorderItems(t *testing.T) {
+	startTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Errorf("expected POST, got %s", r.Method)
+		}
+		if want := "/" + serviceTypesPath + "/st-1/plans/p-1/item_reorder"; r.URL.Path != want {
+			t.Errorf("expected path %s, got %s", want, r.URL.Path)
+		}
+
+		body := decodeBody(t, r)
+		data, ok := body["data"].(map[string]any)
+		if !ok {
+			t.Fatalf("request body has no data object: %v", body)
+		}
+		if data["type"] != "PlanItemReorder" {
+			t.Errorf("expected type PlanItemReorder, got %v", data["type"])
+		}
+		attrs, ok := data["attributes"].(map[string]any)
+		if !ok {
+			t.Fatalf("request body has no data.attributes object: %v", body)
+		}
+		seq, ok := attrs["sequence"].([]any)
+		if !ok || len(seq) != 3 || seq[0] != "i-1" || seq[1] != "i-2" || seq[2] != "i-3" {
+			t.Errorf("expected sequence [i-1 i-2 i-3], got %v", attrs["sequence"])
+		}
+
+		w.WriteHeader(http.StatusNoContent)
+	})
+
+	if err := ReorderItems("st-1", "p-1", []string{"i-1", "i-2", "i-3"}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 

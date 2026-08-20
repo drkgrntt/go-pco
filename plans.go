@@ -64,6 +64,11 @@ type PlanListResponse struct {
 }
 
 type PlansParams struct {
+	// OrderBy sorts by a can_order_by field: "title", "created_at",
+	// "updated_at", or "sort_date". Prefix with "-" for descending.
+	OrderBy string
+	// Filter is PCO's named filter for this endpoint: "past" or "future".
+	Filter  string
 	PerPage int
 	Offset  int
 }
@@ -73,7 +78,11 @@ func GetPlans(serviceTypeID string, params *PlansParams) (response PlanListRespo
 		params = &PlansParams{}
 	}
 
-	q := NewQueryParams().PerPage(params.PerPage).Offset(params.Offset)
+	q := NewQueryParams().
+		OrderBy(params.OrderBy).
+		Filter(params.Filter).
+		PerPage(params.PerPage).
+		Offset(params.Offset)
 
 	url := fmt.Sprintf("%s/%s%s", baseURL, plansPath(serviceTypeID), q.Encode())
 

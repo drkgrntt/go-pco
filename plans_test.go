@@ -22,6 +22,24 @@ func TestGetPlans(t *testing.T) {
 	}
 }
 
+func TestGetPlansBuildsOrderByAndFilterParams(t *testing.T) {
+	startTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		if got := q.Get("order"); got != "-sort_date" {
+			t.Errorf("expected order=-sort_date, got %q", got)
+		}
+		if got := q.Get("filter"); got != "past" {
+			t.Errorf("expected filter=past, got %q", got)
+		}
+
+		writeJSON(t, w, http.StatusOK, `{"data":[]}`)
+	})
+
+	if _, err := GetPlans("st-1", &PlansParams{OrderBy: "-sort_date", Filter: "past"}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
 func TestGetPlan(t *testing.T) {
 	startTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 		if want := "/" + serviceTypesPath + "/st-1/plans/p-1"; r.URL.Path != want {

@@ -13,22 +13,33 @@ type ServiceTypeRelationships struct {
 	} `json:"parent"`
 }
 
+// ItemTypeDefinition is one entry of a service type's item type palette -
+// the row/color PCO's UI uses for a given item type (e.g. "Song", "Header").
+// Both CustomItemTypes and StandardItemTypes use this shape; PCO's docs
+// describe them identically, though only StandardItemTypes has been
+// observed live (this account has no custom item types configured).
+type ItemTypeDefinition struct {
+	Name  string `json:"name"`
+	Index int    `json:"index"`
+	Color string `json:"color"`
+}
+
 type ServiceTypeAttributes struct {
-	ArchivedAt                 *time.Time `json:"archived_at"`
-	AttachmentTypesEnabled     bool       `json:"attachment_types_enabled"`
-	BackgroundCheckPermissions string     `json:"background_check_permissions"`
-	CommentPermissions         string     `json:"comment_permissions"`
-	CreatedAt                  time.Time  `json:"created_at"`
-	CustomItemTypes            []string   `json:"custom_item_types"`
-	DeletedAt                  *time.Time `json:"deleted_at"`
-	Frequency                  string     `json:"frequency"`
-	LastPlanFrom               string     `json:"last_plan_from"`
-	Name                       string     `json:"name"`
-	Permissions                string     `json:"permissions"`
-	ScheduledPublish           bool       `json:"scheduled_publish"`
-	Sequence                   int        `json:"sequence"`
-	StandardItemTypes          []string   `json:"standard_item_types"`
-	UpdatedAt                  time.Time  `json:"updated_at"`
+	ArchivedAt                 *time.Time           `json:"archived_at"`
+	AttachmentTypesEnabled     bool                 `json:"attachment_types_enabled"`
+	BackgroundCheckPermissions string               `json:"background_check_permissions"`
+	CommentPermissions         string               `json:"comment_permissions"`
+	CreatedAt                  time.Time            `json:"created_at"`
+	CustomItemTypes            []ItemTypeDefinition `json:"custom_item_types"`
+	DeletedAt                  *time.Time           `json:"deleted_at"`
+	Frequency                  string               `json:"frequency"`
+	LastPlanFrom               string               `json:"last_plan_from"`
+	Name                       string               `json:"name"`
+	Permissions                string               `json:"permissions"`
+	ScheduledPublish           bool                 `json:"scheduled_publish"`
+	Sequence                   int                  `json:"sequence"`
+	StandardItemTypes          []ItemTypeDefinition `json:"standard_item_types"`
+	UpdatedAt                  time.Time            `json:"updated_at"`
 }
 
 type ServiceTypeData struct {

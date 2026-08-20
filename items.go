@@ -108,6 +108,10 @@ type CreateItemParams struct {
 	ServicePosition string
 	Length          int
 	Sequence        int
+	// SongID links the item to a library Song (relationships.song in PCO's
+	// Item vertex) - the same relationship GetItems/GetItem decode into
+	// ItemRelationships.Song. Leave empty for an item with no linked song.
+	SongID string
 }
 
 func CreateItem(serviceTypeID, planID string, params *CreateItemParams) (response ItemResponse, err error) {
@@ -117,26 +121,46 @@ func CreateItem(serviceTypeID, planID string, params *CreateItemParams) (respons
 
 	url := fmt.Sprintf("%s/%s", baseURL, itemsPath(serviceTypeID, planID))
 
-	body := NewRequestBody(map[string]any{
+	attributes := map[string]any{
 		"title":            params.Title,
 		"description":      params.Description,
 		"item_type":        params.ItemType,
 		"service_position": params.ServicePosition,
 		"length":           params.Length,
 		"sequence":         params.Sequence,
-	})
+	}
+
+	var body RequestBody
+	if params.SongID != "" {
+		body = NewRequestBodyWithRelationships(attributes, map[string]any{
+			"song": map[string]any{
+				"data": map[string]any{"type": "Song", "id": params.SongID},
+			},
+		})
+	} else {
+		body = NewRequestBody(attributes)
+	}
 
 	response, err = NewRequest[ItemResponse]("POST", url, body)
 
 	return
 }
 
+// UpdateItemParams is a partial update - only set fields are sent, so
+// updating (say) just Length leaves Title/Description/etc as they already
+// are in PCO instead of clobbering them back to empty. Length is a pointer
+// because 0 is a legitimate value for it, so a zero value can't double as
+// "leave this alone" the way an empty string does for the string fields.
+//
+// There's deliberately no Sequence field here - PATCHing an item's sequence
+// directly is rejected by PCO ("sequence cannot be assigned", confirmed
+// against the live API). Reordering existing items is done via SortItems
+// instead, which PCO exposes as a dedicated bulk-sort action.
 type UpdateItemParams struct {
 	Title           string
 	Description     string
 	ServicePosition string
-	Length          int
-	Sequence        int
+	Length          *int
 }
 
 func UpdateItem(serviceTypeID, planID, itemID string, params *UpdateItemParams) (response ItemResponse, err error) {
@@ -146,15 +170,21 @@ func UpdateItem(serviceTypeID, planID, itemID string, params *UpdateItemParams) 
 
 	url := fmt.Sprintf("%s/%s/%s", baseURL, itemsPath(serviceTypeID, planID), itemID)
 
-	body := NewRequestBody(map[string]any{
-		"title":            params.Title,
-		"description":      params.Description,
-		"service_position": params.ServicePosition,
-		"length":           params.Length,
-		"sequence":         params.Sequence,
-	})
+	attributes := map[string]any{}
+	if params.Title != "" {
+		attributes["title"] = params.Title
+	}
+	if params.Description != "" {
+		attributes["description"] = params.Description
+	}
+	if params.ServicePosition != "" {
+		attributes["service_position"] = params.ServicePosition
+	}
+	if params.Length != nil {
+		attributes["length"] = *params.Length
+	}
 
-	response, err = NewRequest[ItemResponse]("PATCH", url, body)
+	response, err = NewRequest[ItemResponse]("PATCH", url, NewRequestBody(attributes))
 
 	return
 }
@@ -163,6 +193,32 @@ func DeleteItem(serviceTypeID, planID, itemID string) (err error) {
 	url := fmt.Sprintf("%s/%s/%s", baseURL, itemsPath(serviceTypeID, planID), itemID)
 
 	_, err = NewRequest[struct{}]("DELETE", url, nil)
+
+	return
+}
+
+// ReorderItems reorders every item in a plan to match itemIDs - the full,
+// final ordering, not a delta - via PCO's "item_reorder" plan action
+// (confirmed directly against PCO's own documentation API,
+// GET .../services/v2/documentation/2018-11-01/vertices/plan, which isn't
+// crawlable through the JS docs site but is itself a plain JSON endpoint).
+// PCO's docs note it expects every item's id in the plan, in order -
+// there's no documented partial/delta form, so omitting an item likely
+// misplaces it rather than leaving it alone. On success PCO returns 204 No
+// Content, matched here by discarding the response body (see DeleteItem).
+func ReorderItems(serviceTypeID, planID string, itemIDs []string) (err error) {
+	url := fmt.Sprintf("%s/%s/%s/item_reorder", baseURL, plansPath(serviceTypeID), planID)
+
+	body := RequestBody{
+		Data: RequestData{
+			Type: "PlanItemReorder",
+			Attributes: map[string]any{
+				"sequence": itemIDs,
+			},
+		},
+	}
+
+	_, err = NewRequest[struct{}]("POST", url, body)
 
 	return
 }

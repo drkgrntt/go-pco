@@ -22,6 +22,36 @@ func TestGetServiceTypes(t *testing.T) {
 	}
 }
 
+func TestGetServiceTypesDecodesItemTypes(t *testing.T) {
+	startTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(t, w, http.StatusOK, `{"data":[{
+			"type": "ServiceType",
+			"id": "1",
+			"attributes": {
+				"name": "Sunday Service",
+				"standard_item_types": [
+					{"name": "Header", "index": 6, "color": "#eaebeb"},
+					{"name": "Song", "index": 7, "color": "#ffffff"}
+				],
+				"custom_item_types": []
+			}
+		}]}`)
+	})
+
+	response, err := GetServiceTypes(nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	types := response.Data[0].Attributes.StandardItemTypes
+	if len(types) != 2 {
+		t.Fatalf("expected 2 standard item types, got %d", len(types))
+	}
+	if types[0].Name != "Header" || types[0].Index != 6 || types[0].Color != "#eaebeb" {
+		t.Errorf("unexpected first item type: %+v", types[0])
+	}
+}
+
 func TestGetServiceType(t *testing.T) {
 	startTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 		if want := "/" + serviceTypesPath + "/1"; r.URL.Path != want {

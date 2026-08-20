@@ -45,6 +45,84 @@ func TestGetPeopleBuildsWhereFilters(t *testing.T) {
 	}
 }
 
+func TestGetPeopleBuildsIncludeParam(t *testing.T) {
+	startTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		if got := q.Get("include"); got != "emails,addresses" {
+			t.Errorf("expected include=emails,addresses, got %q", got)
+		}
+
+		writeJSON(t, w, http.StatusOK, `{"data":[]}`)
+	})
+
+	if _, err := GetPeople(&PeopleParams{Include: []string{"emails", "addresses"}}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestGetPeopleBuildsOrderByParam(t *testing.T) {
+	startTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		if got := q.Get("order"); got != "-created_at" {
+			t.Errorf("expected order=-created_at, got %q", got)
+		}
+
+		writeJSON(t, w, http.StatusOK, `{"data":[]}`)
+	})
+
+	if _, err := GetPeople(&PeopleParams{OrderBy: "-created_at"}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestGetPeopleDecodesRelationshipsAndIncluded(t *testing.T) {
+	startTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(t, w, http.StatusOK, `{
+			"data": [{
+				"type": "Person",
+				"id": "1",
+				"attributes": {"first_name": "Ada", "last_name": "Lovelace"},
+				"relationships": {
+					"primary_campus": {"data": null},
+					"organization": {"data": {"type": "Organization", "id": "539527"}},
+					"emails": {"data": [{"type": "Email", "id": "10"}]},
+					"addresses": {"data": [{"type": "Address", "id": "20"}, {"type": "Address", "id": "21"}]},
+					"phone_numbers": {"data": []}
+				}
+			}],
+			"included": [
+				{"type": "Email", "id": "10", "attributes": {"address": "ada@example.com"}}
+			]
+		}`)
+	})
+
+	response, err := GetPeople(&PeopleParams{Include: []string{"emails", "addresses", "phone_numbers", "organization"}})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	rel := response.Data[0].Relationships
+	if rel.PrimaryCampus.Data != nil {
+		t.Errorf("expected nil PrimaryCampus.Data, got %+v", rel.PrimaryCampus.Data)
+	}
+	if rel.Organization.Data == nil || rel.Organization.Data.ID != "539527" {
+		t.Errorf("expected Organization.Data.ID 539527, got %+v", rel.Organization.Data)
+	}
+	if len(rel.Emails.Data) != 1 || rel.Emails.Data[0].ID != "10" {
+		t.Errorf("expected one Email relationship with id 10, got %+v", rel.Emails.Data)
+	}
+	if len(rel.Addresses.Data) != 2 {
+		t.Errorf("expected two Address relationships, got %+v", rel.Addresses.Data)
+	}
+	if len(rel.PhoneNumbers.Data) != 0 {
+		t.Errorf("expected zero PhoneNumber relationships, got %+v", rel.PhoneNumbers.Data)
+	}
+
+	if len(response.Included) != 1 {
+		t.Fatalf("expected one included resource, got %d", len(response.Included))
+	}
+}
+
 func TestGetPeopleNilParams(t *testing.T) {
 	startTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.RawQuery != "" {
@@ -55,6 +133,23 @@ func TestGetPeopleNilParams(t *testing.T) {
 
 	if _, err := GetPeople(nil); err != nil {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestGetPerson(t *testing.T) {
+	startTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		if want := "/" + peoplePath + "/1"; r.URL.Path != want {
+			t.Errorf("expected path %s, got %s", want, r.URL.Path)
+		}
+		writeJSON(t, w, http.StatusOK, `{"data":{"type":"Person","id":"1","attributes":{"first_name":"Ada","last_name":"Lovelace"}}}`)
+	})
+
+	response, err := GetPerson("1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if response.Data.ID != "1" || response.Data.Attributes.FirstName != "Ada" {
+		t.Errorf("unexpected response: %+v", response.Data)
 	}
 }
 

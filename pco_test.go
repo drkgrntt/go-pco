@@ -63,6 +63,24 @@ func attributes(t *testing.T, body map[string]any) map[string]any {
 	return attrs
 }
 
+// relationships pulls data.relationships out of a decoded JSON:API request
+// body.
+func relationships(t *testing.T, body map[string]any) map[string]any {
+	t.Helper()
+
+	data, ok := body["data"].(map[string]any)
+	if !ok {
+		t.Fatalf("request body has no data object: %v", body)
+	}
+
+	rels, ok := data["relationships"].(map[string]any)
+	if !ok {
+		t.Fatalf("request body has no data.relationships object: %v", body)
+	}
+
+	return rels
+}
+
 func writeJSON(t *testing.T, w http.ResponseWriter, status int, body string) {
 	t.Helper()
 	w.Header().Set("Content-Type", "application/json")
