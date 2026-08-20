@@ -1,6 +1,7 @@
 package pco
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -195,12 +196,57 @@ func TestNewRequestSuccess(t *testing.T) {
 		Greeting string `json:"greeting"`
 	}
 
-	got, err := NewRequest[response](http.MethodGet, baseURL+"/anything", nil)
+	got, err := NewRequest[response](context.Background(), http.MethodGet, baseURL+"/anything", nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if got.Greeting != "hello" {
 		t.Errorf("expected greeting hello, got %q", got.Greeting)
+	}
+}
+
+// TestNewRequestContextTokenTakesPrecedence confirms a context-carried
+// access token (see WithAccessToken) is used as a Bearer token instead of
+// the PCO_CLIENT_ID/PCO_SECRET PAT, even when both are available - a
+// signed-in user's own requests should always act as them, not as whoever
+// the PAT happens to belong to.
+func TestNewRequestContextTokenTakesPrecedence(t *testing.T) {
+	t.Setenv("PCO_CLIENT_ID", "test-id")
+	t.Setenv("PCO_SECRET", "test-secret")
+
+	startTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		if _, _, ok := r.BasicAuth(); ok {
+			t.Error("expected no Basic Auth when a context token is present")
+		}
+		if got := r.Header.Get("Authorization"); got != "Bearer user-token" {
+			t.Errorf("expected Authorization: Bearer user-token, got %q", got)
+		}
+		writeJSON(t, w, http.StatusOK, `{}`)
+	})
+
+	ctx := WithAccessToken(context.Background(), "user-token")
+	if _, err := NewRequest[struct{}](ctx, http.MethodGet, baseURL+"/anything", nil); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+// TestNewRequestFallsBackToPATWithoutContextToken confirms the PAT is still
+// used when no context token is present - existing scripts/tests that never
+// call WithAccessToken keep working unchanged.
+func TestNewRequestFallsBackToPATWithoutContextToken(t *testing.T) {
+	t.Setenv("PCO_CLIENT_ID", "test-id")
+	t.Setenv("PCO_SECRET", "test-secret")
+
+	startTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		user, pass, ok := r.BasicAuth()
+		if !ok || user != "test-id" || pass != "test-secret" {
+			t.Errorf("expected basic auth test-id/test-secret, got %q/%q (ok=%v)", user, pass, ok)
+		}
+		writeJSON(t, w, http.StatusOK, `{}`)
+	})
+
+	if _, err := NewRequest[struct{}](context.Background(), http.MethodGet, baseURL+"/anything", nil); err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
@@ -215,10 +261,10 @@ func TestNewRequestSetsContentTypeOnlyWithBody(t *testing.T) {
 		writeJSON(t, w, http.StatusOK, `{}`)
 	})
 
-	if _, err := NewRequest[struct{}](http.MethodGet, baseURL+"/no-body", nil); err != nil {
+	if _, err := NewRequest[struct{}](context.Background(), http.MethodGet, baseURL+"/no-body", nil); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if _, err := NewRequest[struct{}](http.MethodPost, baseURL+"/with-body", map[string]string{"a": "b"}); err != nil {
+	if _, err := NewRequest[struct{}](context.Background(), http.MethodPost, baseURL+"/with-body", map[string]string{"a": "b"}); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
@@ -228,7 +274,7 @@ func TestNewRequestEmptyBodyNoError(t *testing.T) {
 		w.WriteHeader(http.StatusNoContent)
 	})
 
-	if _, err := NewRequest[struct{}](http.MethodDelete, baseURL+"/thing/1", nil); err != nil {
+	if _, err := NewRequest[struct{}](context.Background(), http.MethodDelete, baseURL+"/thing/1", nil); err != nil {
 		t.Fatalf("expected no error on empty 204 body, got %v", err)
 	}
 }
@@ -238,7 +284,7 @@ func TestNewRequestErrorStatus(t *testing.T) {
 		writeJSON(t, w, http.StatusUnprocessableEntity, `{"errors":[{"status":"422","title":"Unprocessable Entity","detail":"name can't be blank"}]}`)
 	})
 
-	_, err := NewRequest[struct{}](http.MethodPost, baseURL+"/thing", map[string]string{})
+	_, err := NewRequest[struct{}](context.Background(), http.MethodPost, baseURL+"/thing", map[string]string{})
 	if err == nil {
 		t.Fatal("expected an error for a 422 response")
 	}

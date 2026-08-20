@@ -1,6 +1,7 @@
 package pco
 
 import (
+	"context"
 	"net/http"
 	"testing"
 )
@@ -13,7 +14,7 @@ func TestGetServiceTypes(t *testing.T) {
 		writeJSON(t, w, http.StatusOK, `{"data":[{"type":"ServiceType","id":"1","attributes":{"name":"Sunday Service"}}]}`)
 	})
 
-	response, err := GetServiceTypes(nil)
+	response, err := GetServiceTypes(context.Background(), nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -38,7 +39,7 @@ func TestGetServiceTypesDecodesItemTypes(t *testing.T) {
 		}]}`)
 	})
 
-	response, err := GetServiceTypes(nil)
+	response, err := GetServiceTypes(context.Background(), nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -60,7 +61,7 @@ func TestGetServiceType(t *testing.T) {
 		writeJSON(t, w, http.StatusOK, `{"data":{"type":"ServiceType","id":"1","attributes":{"name":"Sunday Service"}}}`)
 	})
 
-	response, err := GetServiceType("1")
+	response, err := GetServiceType(context.Background(), "1")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -81,7 +82,7 @@ func TestCreateServiceType(t *testing.T) {
 		writeJSON(t, w, http.StatusCreated, `{"data":{"type":"ServiceType","id":"2","attributes":{"name":"Youth Service"}}}`)
 	})
 
-	response, err := CreateServiceType(&CreateServiceTypeParams{Name: "Youth Service"})
+	response, err := CreateServiceType(context.Background(), &CreateServiceTypeParams{Name: "Youth Service"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -91,7 +92,7 @@ func TestCreateServiceType(t *testing.T) {
 }
 
 func TestCreateServiceTypeNilParams(t *testing.T) {
-	if _, err := CreateServiceType(nil); err == nil {
+	if _, err := CreateServiceType(context.Background(), nil); err == nil {
 		t.Fatal("expected an error for nil params")
 	}
 }
@@ -107,7 +108,7 @@ func TestUpdateServiceType(t *testing.T) {
 		writeJSON(t, w, http.StatusOK, `{"data":{"type":"ServiceType","id":"1","attributes":{"name":"Renamed"}}}`)
 	})
 
-	response, err := UpdateServiceType("1", &UpdateServiceTypeParams{Name: "Renamed"})
+	response, err := UpdateServiceType(context.Background(), "1", &UpdateServiceTypeParams{Name: "Renamed"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -124,7 +125,7 @@ func TestDeleteServiceType(t *testing.T) {
 		w.WriteHeader(http.StatusNoContent)
 	})
 
-	if err := DeleteServiceType("1"); err != nil {
+	if err := DeleteServiceType(context.Background(), "1"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }

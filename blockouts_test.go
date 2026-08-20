@@ -1,6 +1,7 @@
 package pco
 
 import (
+	"context"
 	"net/http"
 	"testing"
 )
@@ -25,7 +26,7 @@ func TestGetBlockouts(t *testing.T) {
 		}]}`)
 	})
 
-	response, err := GetBlockouts("5", &BlockoutsParams{Filter: "future"})
+	response, err := GetBlockouts(context.Background(), "5", &BlockoutsParams{Filter: "future"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -42,7 +43,7 @@ func TestGetBlockoutsNilParams(t *testing.T) {
 		writeJSON(t, w, http.StatusOK, `{"data":[]}`)
 	})
 
-	if _, err := GetBlockouts("5", nil); err != nil {
+	if _, err := GetBlockouts(context.Background(), "5", nil); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }

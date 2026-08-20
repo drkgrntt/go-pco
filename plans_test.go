@@ -1,6 +1,7 @@
 package pco
 
 import (
+	"context"
 	"net/http"
 	"testing"
 )
@@ -13,7 +14,7 @@ func TestGetPlans(t *testing.T) {
 		writeJSON(t, w, http.StatusOK, `{"data":[{"type":"Plan","id":"1","attributes":{"title":"This Sunday"}}]}`)
 	})
 
-	response, err := GetPlans("st-1", nil)
+	response, err := GetPlans(context.Background(), "st-1", nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -35,7 +36,7 @@ func TestGetPlansBuildsOrderByAndFilterParams(t *testing.T) {
 		writeJSON(t, w, http.StatusOK, `{"data":[]}`)
 	})
 
-	if _, err := GetPlans("st-1", &PlansParams{OrderBy: "-sort_date", Filter: "past"}); err != nil {
+	if _, err := GetPlans(context.Background(), "st-1", &PlansParams{OrderBy: "-sort_date", Filter: "past"}); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
@@ -48,7 +49,7 @@ func TestGetPlan(t *testing.T) {
 		writeJSON(t, w, http.StatusOK, `{"data":{"type":"Plan","id":"p-1","attributes":{"title":"This Sunday"}}}`)
 	})
 
-	response, err := GetPlan("st-1", "p-1")
+	response, err := GetPlan(context.Background(), "st-1", "p-1")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -72,7 +73,7 @@ func TestCreatePlan(t *testing.T) {
 		writeJSON(t, w, http.StatusCreated, `{"data":{"type":"Plan","id":"p-1","attributes":{"title":"This Sunday","public":true}}}`)
 	})
 
-	response, err := CreatePlan("st-1", &CreatePlanParams{Title: "This Sunday", Public: true})
+	response, err := CreatePlan(context.Background(), "st-1", &CreatePlanParams{Title: "This Sunday", Public: true})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -93,13 +94,13 @@ func TestCreatePlanIncludesSeriesWhenSet(t *testing.T) {
 		writeJSON(t, w, http.StatusCreated, `{"data":{"type":"Plan","id":"p-1","attributes":{}}}`)
 	})
 
-	if _, err := CreatePlan("st-1", &CreatePlanParams{SeriesID: "s-1", SeriesTitle: "Advent"}); err != nil {
+	if _, err := CreatePlan(context.Background(), "st-1", &CreatePlanParams{SeriesID: "s-1", SeriesTitle: "Advent"}); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
 func TestCreatePlanNilParams(t *testing.T) {
-	if _, err := CreatePlan("st-1", nil); err == nil {
+	if _, err := CreatePlan(context.Background(), "st-1", nil); err == nil {
 		t.Fatal("expected an error for nil params")
 	}
 }
@@ -114,7 +115,7 @@ func TestUpdatePlan(t *testing.T) {
 	})
 
 	remindersDisabled := true
-	response, err := UpdatePlan("st-1", "p-1", &UpdatePlanParams{RemindersDisabled: &remindersDisabled})
+	response, err := UpdatePlan(context.Background(), "st-1", "p-1", &UpdatePlanParams{RemindersDisabled: &remindersDisabled})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -131,7 +132,7 @@ func TestDeletePlan(t *testing.T) {
 		w.WriteHeader(http.StatusNoContent)
 	})
 
-	if err := DeletePlan("st-1", "p-1"); err != nil {
+	if err := DeletePlan(context.Background(), "st-1", "p-1"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }

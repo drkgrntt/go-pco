@@ -1,6 +1,7 @@
 package pco
 
 import (
+	"context"
 	"net/http"
 	"testing"
 )
@@ -16,7 +17,7 @@ func TestGetAvailableEvents(t *testing.T) {
 		writeJSON(t, w, http.StatusOK, `{"data":[{"type":"AvailableEvent","id":"1","attributes":{"name":"people.v2.events.person.created","app":"people"}}]}`)
 	})
 
-	response, err := GetAvailableEvents(&AvailableEventsParams{PerPage: 100})
+	response, err := GetAvailableEvents(context.Background(), &AvailableEventsParams{PerPage: 100})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -30,7 +31,7 @@ func TestGetAvailableEventsNilParams(t *testing.T) {
 		writeJSON(t, w, http.StatusOK, `{"data":[]}`)
 	})
 
-	if _, err := GetAvailableEvents(nil); err != nil {
+	if _, err := GetAvailableEvents(context.Background(), nil); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }

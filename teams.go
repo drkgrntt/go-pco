@@ -1,6 +1,7 @@
 package pco
 
 import (
+	"context"
 	"fmt"
 )
 
@@ -60,7 +61,7 @@ type TeamsParams struct {
 // GetTeams lists every team configured for a service type (e.g. "Worship",
 // "Tech", "Hospitality") - read-only from this SDK's perspective; PCO doesn't
 // document create/update/destroy for Team.
-func GetTeams(serviceTypeID string, params *TeamsParams) (response TeamListResponse, err error) {
+func GetTeams(ctx context.Context, serviceTypeID string, params *TeamsParams) (response TeamListResponse, err error) {
 	if params == nil {
 		params = &TeamsParams{}
 	}
@@ -69,7 +70,7 @@ func GetTeams(serviceTypeID string, params *TeamsParams) (response TeamListRespo
 
 	url := fmt.Sprintf("%s/%s%s", baseURL, teamsPath(serviceTypeID), q.Encode())
 
-	response, err = NewRequest[TeamListResponse]("GET", url, nil)
+	response, err = NewRequest[TeamListResponse](ctx, "GET", url, nil)
 
 	return
 }

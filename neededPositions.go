@@ -1,6 +1,9 @@
 package pco
 
-import "fmt"
+import (
+	"context"
+	"fmt"
+)
 
 func neededPositionsPath(serviceTypeID, planID string) string {
 	return fmt.Sprintf("%s/%s/needed_positions", plansPath(serviceTypeID), planID)
@@ -49,7 +52,7 @@ type NeededPositionsParams struct {
 // + how many are needed) - the plan-side half of what the Team Builder merges
 // with actual filled assignments (see GetTeamMembers), mirroring how
 // GetItems' order-of-service data is merged with a local set.
-func GetNeededPositions(serviceTypeID, planID string, params *NeededPositionsParams) (response NeededPositionListResponse, err error) {
+func GetNeededPositions(ctx context.Context, serviceTypeID, planID string, params *NeededPositionsParams) (response NeededPositionListResponse, err error) {
 	if params == nil {
 		params = &NeededPositionsParams{}
 	}
@@ -58,7 +61,7 @@ func GetNeededPositions(serviceTypeID, planID string, params *NeededPositionsPar
 
 	url := fmt.Sprintf("%s/%s%s", baseURL, neededPositionsPath(serviceTypeID, planID), q.Encode())
 
-	response, err = NewRequest[NeededPositionListResponse]("GET", url, nil)
+	response, err = NewRequest[NeededPositionListResponse](ctx, "GET", url, nil)
 
 	return
 }

@@ -1,6 +1,7 @@
 package pco
 
 import (
+	"context"
 	"net/http"
 	"testing"
 )
@@ -16,7 +17,7 @@ func TestGetWebhookSubscriptions(t *testing.T) {
 		writeJSON(t, w, http.StatusOK, `{"data":[{"type":"WebhookSubscription","id":"1","attributes":{"name":"people.v2.events.person.created","active":true}}]}`)
 	})
 
-	response, err := GetWebhookSubscriptions(&WebhookSubscriptionsParams{ApplicationID: "app-1"})
+	response, err := GetWebhookSubscriptions(context.Background(), &WebhookSubscriptionsParams{ApplicationID: "app-1"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -33,7 +34,7 @@ func TestGetWebhookSubscription(t *testing.T) {
 		writeJSON(t, w, http.StatusOK, `{"data":{"type":"WebhookSubscription","id":"1","attributes":{"name":"people.v2.events.person.created"}}}`)
 	})
 
-	response, err := GetWebhookSubscription("1")
+	response, err := GetWebhookSubscription(context.Background(), "1")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -60,7 +61,7 @@ func TestCreateWebhookSubscription(t *testing.T) {
 		writeJSON(t, w, http.StatusCreated, `{"data":{"type":"WebhookSubscription","id":"1","attributes":{"name":"people.v2.events.person.created","url":"https://example.com/webhooks","active":true,"authenticity_secret":"shh"}}}`)
 	})
 
-	response, err := CreateWebhookSubscription(&CreateWebhookSubscriptionParams{
+	response, err := CreateWebhookSubscription(context.Background(), &CreateWebhookSubscriptionParams{
 		Name:   "people.v2.events.person.created",
 		URL:    "https://example.com/webhooks",
 		Active: true,
@@ -74,7 +75,7 @@ func TestCreateWebhookSubscription(t *testing.T) {
 }
 
 func TestCreateWebhookSubscriptionNilParams(t *testing.T) {
-	if _, err := CreateWebhookSubscription(nil); err == nil {
+	if _, err := CreateWebhookSubscription(context.Background(), nil); err == nil {
 		t.Fatal("expected an error for nil params")
 	}
 }
@@ -91,7 +92,7 @@ func TestUpdateWebhookSubscriptionActive(t *testing.T) {
 		writeJSON(t, w, http.StatusOK, `{"data":{"type":"WebhookSubscription","id":"1","attributes":{"active":false}}}`)
 	})
 
-	response, err := UpdateWebhookSubscriptionActive("1", false)
+	response, err := UpdateWebhookSubscriptionActive(context.Background(), "1", false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -111,7 +112,7 @@ func TestDeleteWebhookSubscription(t *testing.T) {
 		w.WriteHeader(http.StatusNoContent)
 	})
 
-	if err := DeleteWebhookSubscription("1"); err != nil {
+	if err := DeleteWebhookSubscription(context.Background(), "1"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
@@ -127,7 +128,7 @@ func TestRotateWebhookSubscriptionSecret(t *testing.T) {
 		writeJSON(t, w, http.StatusOK, `{"data":{"type":"WebhookSubscription","id":"1","attributes":{"authenticity_secret":"new-secret"}}}`)
 	})
 
-	response, err := RotateWebhookSubscriptionSecret("1")
+	response, err := RotateWebhookSubscriptionSecret(context.Background(), "1")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

@@ -1,6 +1,7 @@
 package pco
 
 import (
+	"context"
 	"net/http"
 	"testing"
 )
@@ -18,7 +19,7 @@ func TestGetTeamMembers(t *testing.T) {
 		}]}`)
 	})
 
-	response, err := GetTeamMembers("1", "2", nil)
+	response, err := GetTeamMembers(context.Background(), "1", "2", nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -58,7 +59,7 @@ func TestCreateTeamMember(t *testing.T) {
 		writeJSON(t, w, http.StatusCreated, `{"data":{"type":"PlanPerson","id":"1","attributes":{"team_position_name":"Drums"}}}`)
 	})
 
-	response, err := CreateTeamMember("1", "2", &CreateTeamMemberParams{
+	response, err := CreateTeamMember(context.Background(), "1", "2", &CreateTeamMemberParams{
 		PersonID:         "5",
 		TeamID:           "7",
 		TeamPositionName: "Drums",
@@ -80,7 +81,7 @@ func TestCreateTeamMemberExplicitStatus(t *testing.T) {
 		writeJSON(t, w, http.StatusCreated, `{"data":{"type":"PlanPerson","id":"1"}}`)
 	})
 
-	if _, err := CreateTeamMember("1", "2", &CreateTeamMemberParams{
+	if _, err := CreateTeamMember(context.Background(), "1", "2", &CreateTeamMemberParams{
 		PersonID: "5", TeamID: "7", Status: PlanPersonStatusConfirmed,
 	}); err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -88,7 +89,7 @@ func TestCreateTeamMemberExplicitStatus(t *testing.T) {
 }
 
 func TestCreateTeamMemberNilParams(t *testing.T) {
-	if _, err := CreateTeamMember("1", "2", nil); err == nil {
+	if _, err := CreateTeamMember(context.Background(), "1", "2", nil); err == nil {
 		t.Fatal("expected an error for nil params")
 	}
 }
@@ -110,7 +111,7 @@ func TestDeleteTeamMemberUsesPlanScopedPath(t *testing.T) {
 		w.WriteHeader(http.StatusNoContent)
 	})
 
-	if err := DeleteTeamMember("1", "2", "9"); err != nil {
+	if err := DeleteTeamMember(context.Background(), "1", "2", "9"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
@@ -135,7 +136,7 @@ func TestGetPersonPlanPeople(t *testing.T) {
 		}],"included":[{"type":"Plan","id":"2","attributes":{"sort_date":"2026-09-20T00:00:00Z"}}]}`)
 	})
 
-	response, err := GetPersonPlanPeople("5", &PersonPlanPeopleParams{TeamID: "7", Include: []string{"plan"}})
+	response, err := GetPersonPlanPeople(context.Background(), "5", &PersonPlanPeopleParams{TeamID: "7", Include: []string{"plan"}})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

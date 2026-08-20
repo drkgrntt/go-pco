@@ -1,6 +1,7 @@
 package pco
 
 import (
+	"context"
 	"net/http"
 	"testing"
 )
@@ -13,7 +14,7 @@ func TestGetTeamPositions(t *testing.T) {
 		writeJSON(t, w, http.StatusOK, `{"data":[{"type":"TeamPosition","id":"1","attributes":{"name":"Drums","sequence":1}}]}`)
 	})
 
-	response, err := GetTeamPositions("1", &TeamPositionsParams{OrderBy: "name"})
+	response, err := GetTeamPositions(context.Background(), "1", &TeamPositionsParams{OrderBy: "name"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -30,7 +31,7 @@ func TestGetTeamPositionsNilParams(t *testing.T) {
 		writeJSON(t, w, http.StatusOK, `{"data":[]}`)
 	})
 
-	if _, err := GetTeamPositions("1", nil); err != nil {
+	if _, err := GetTeamPositions(context.Background(), "1", nil); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }

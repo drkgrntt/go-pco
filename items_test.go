@@ -1,6 +1,7 @@
 package pco
 
 import (
+	"context"
 	"net/http"
 	"testing"
 )
@@ -13,7 +14,7 @@ func TestGetItems(t *testing.T) {
 		writeJSON(t, w, http.StatusOK, `{"data":[{"type":"Item","id":"1","attributes":{"title":"Welcome"}}]}`)
 	})
 
-	response, err := GetItems("st-1", "p-1", nil)
+	response, err := GetItems(context.Background(), "st-1", "p-1", nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -30,7 +31,7 @@ func TestGetItem(t *testing.T) {
 		writeJSON(t, w, http.StatusOK, `{"data":{"type":"Item","id":"i-1","attributes":{"title":"Welcome"}}}`)
 	})
 
-	response, err := GetItem("st-1", "p-1", "i-1")
+	response, err := GetItem(context.Background(), "st-1", "p-1", "i-1")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -54,7 +55,7 @@ func TestCreateItem(t *testing.T) {
 		writeJSON(t, w, http.StatusCreated, `{"data":{"type":"Item","id":"i-1","attributes":{"title":"Opening Song","item_type":"song"}}}`)
 	})
 
-	response, err := CreateItem("st-1", "p-1", &CreateItemParams{
+	response, err := CreateItem(context.Background(), "st-1", "p-1", &CreateItemParams{
 		Title:           "Opening Song",
 		ItemType:        ItemTypeSong,
 		ServicePosition: ServicePositionPre,
@@ -92,7 +93,7 @@ func TestCreateItemWithSong(t *testing.T) {
 		writeJSON(t, w, http.StatusCreated, `{"data":{"type":"Item","id":"i-1","attributes":{"title":"Opening Song"}}}`)
 	})
 
-	_, err := CreateItem("st-1", "p-1", &CreateItemParams{
+	_, err := CreateItem(context.Background(), "st-1", "p-1", &CreateItemParams{
 		Title:    "Opening Song",
 		ItemType: ItemTypeSong,
 		SongID:   "song-1",
@@ -103,7 +104,7 @@ func TestCreateItemWithSong(t *testing.T) {
 }
 
 func TestCreateItemNilParams(t *testing.T) {
-	if _, err := CreateItem("st-1", "p-1", nil); err == nil {
+	if _, err := CreateItem(context.Background(), "st-1", "p-1", nil); err == nil {
 		t.Fatal("expected an error for nil params")
 	}
 }
@@ -120,7 +121,7 @@ func TestUpdateItem(t *testing.T) {
 		writeJSON(t, w, http.StatusOK, `{"data":{"type":"Item","id":"i-1","attributes":{"title":"Opening Song"}}}`)
 	})
 
-	response, err := UpdateItem("st-1", "p-1", "i-1", &UpdateItemParams{Title: "Opening Song"})
+	response, err := UpdateItem(context.Background(), "st-1", "p-1", "i-1", &UpdateItemParams{Title: "Opening Song"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -147,7 +148,7 @@ func TestUpdateItemPartial(t *testing.T) {
 	})
 
 	length := 0
-	if _, err := UpdateItem("st-1", "p-1", "i-1", &UpdateItemParams{Length: &length}); err != nil {
+	if _, err := UpdateItem(context.Background(), "st-1", "p-1", "i-1", &UpdateItemParams{Length: &length}); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
@@ -184,7 +185,7 @@ func TestReorderItems(t *testing.T) {
 		w.WriteHeader(http.StatusNoContent)
 	})
 
-	if err := ReorderItems("st-1", "p-1", []string{"i-1", "i-2", "i-3"}); err != nil {
+	if err := ReorderItems(context.Background(), "st-1", "p-1", []string{"i-1", "i-2", "i-3"}); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
@@ -197,7 +198,7 @@ func TestDeleteItem(t *testing.T) {
 		w.WriteHeader(http.StatusNoContent)
 	})
 
-	if err := DeleteItem("st-1", "p-1", "i-1"); err != nil {
+	if err := DeleteItem(context.Background(), "st-1", "p-1", "i-1"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }

@@ -1,6 +1,7 @@
 package pco
 
 import (
+	"context"
 	"fmt"
 	"time"
 )
@@ -45,7 +46,7 @@ type PhoneNumberCreateParams struct {
 	Primary  bool
 }
 
-func CreatePhoneNumber(personID string, params *PhoneNumberCreateParams) (response PhoneNumberCreateResponse, err error) {
+func CreatePhoneNumber(ctx context.Context, personID string, params *PhoneNumberCreateParams) (response PhoneNumberCreateResponse, err error) {
 	if params == nil {
 		return response, fmt.Errorf("params cannot be nil")
 	}
@@ -58,7 +59,7 @@ func CreatePhoneNumber(personID string, params *PhoneNumberCreateParams) (respon
 		"primary":  params.Primary,
 	})
 
-	response, err = NewRequest[PhoneNumberCreateResponse]("POST", url, body)
+	response, err = NewRequest[PhoneNumberCreateResponse](ctx, "POST", url, body)
 
 	return
 }

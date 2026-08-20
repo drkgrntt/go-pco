@@ -1,6 +1,7 @@
 package pco
 
 import (
+	"context"
 	"net/http"
 	"testing"
 )
@@ -18,7 +19,7 @@ func TestGetNeededPositions(t *testing.T) {
 		}]}`)
 	})
 
-	response, err := GetNeededPositions("1", "2", nil)
+	response, err := GetNeededPositions(context.Background(), "1", "2", nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

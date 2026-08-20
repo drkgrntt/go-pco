@@ -2,6 +2,7 @@ package pco
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -15,6 +16,24 @@ import (
 // baseURL is a var (not a const) so tests can point it at a local
 // httptest.Server.
 var baseURL = "https://api.planningcenteronline.com"
+
+// accessTokenKey is the context.Context key WithAccessToken/NewRequest use
+// to pass a per-request OAuth Bearer token - unexported so nothing outside
+// this package can collide with it or read it directly.
+type contextKey int
+
+const accessTokenKey contextKey = iota
+
+// WithAccessToken returns a context carrying a per-request OAuth access
+// token - when present, NewRequest authenticates with it (Authorization:
+// Bearer <token>) instead of the PCO_CLIENT_ID/PCO_SECRET Personal Access
+// Token. This is how a multi-user caller (each signed-in user making
+// requests as themselves, against their own PCO organization and
+// permissions) differs from a single-tenant script using the PAT - thread
+// this context through instead of the PAT for anything user-scoped.
+func WithAccessToken(ctx context.Context, token string) context.Context {
+	return context.WithValue(ctx, accessTokenKey, token)
+}
 
 type Meta struct {
 	CanFilter  []string `json:"can_filter"`
@@ -188,6 +207,7 @@ func (q *QueryParams) Encode() string {
 }
 
 func NewRequest[Response interface{}](
+	ctx context.Context,
 	method string,
 	url string,
 	body interface{},
@@ -201,7 +221,7 @@ func NewRequest[Response interface{}](
 		bodyReader = bytes.NewReader(bodyBytes)
 	}
 
-	req, err := http.NewRequest(method, url, bodyReader)
+	req, err := http.NewRequestWithContext(ctx, method, url, bodyReader)
 	if err != nil {
 		return response, err
 	}
@@ -209,7 +229,17 @@ func NewRequest[Response interface{}](
 		req.Header.Set("Content-Type", "application/json")
 	}
 
-	req.SetBasicAuth(os.Getenv("PCO_CLIENT_ID"), os.Getenv("PCO_SECRET"))
+	// A context-carried per-user token (see WithAccessToken) takes
+	// precedence over the PAT - a signed-in user's own requests should
+	// always act as them, not as whoever's PCO_CLIENT_ID/PCO_SECRET happen
+	// to be configured. Falling back to the PAT keeps standalone scripts
+	// and this package's own tests working without needing a token.
+	if token, ok := ctx.Value(accessTokenKey).(string); ok && token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	} else {
+		req.SetBasicAuth(os.Getenv("PCO_CLIENT_ID"), os.Getenv("PCO_SECRET"))
+	}
+
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {

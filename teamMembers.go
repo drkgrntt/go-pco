@@ -1,6 +1,9 @@
 package pco
 
-import "fmt"
+import (
+	"context"
+	"fmt"
+)
 
 // teamMembersPath is PlanPerson scoped to a plan - PCO's "who's actually
 // filling positions on this plan" list (as opposed to needed_positions,
@@ -83,7 +86,7 @@ type TeamMembersParams struct {
 
 // GetTeamMembers lists every person currently assigned to fill a position on
 // this plan (any status - confirmed, unconfirmed, or declined).
-func GetTeamMembers(serviceTypeID, planID string, params *TeamMembersParams) (response PlanPersonListResponse, err error) {
+func GetTeamMembers(ctx context.Context, serviceTypeID, planID string, params *TeamMembersParams) (response PlanPersonListResponse, err error) {
 	if params == nil {
 		params = &TeamMembersParams{}
 	}
@@ -92,7 +95,7 @@ func GetTeamMembers(serviceTypeID, planID string, params *TeamMembersParams) (re
 
 	url := fmt.Sprintf("%s/%s%s", baseURL, teamMembersPath(serviceTypeID, planID), q.Encode())
 
-	response, err = NewRequest[PlanPersonListResponse]("GET", url, nil)
+	response, err = NewRequest[PlanPersonListResponse](ctx, "GET", url, nil)
 
 	return
 }
@@ -112,7 +115,7 @@ type CreateTeamMemberParams struct {
 // PCO's documented "Assignable on Create" fields for PlanPerson
 // (person_id/team_id/status/team_position_name via relationships+attributes
 // on the plan-scoped team_members path).
-func CreateTeamMember(serviceTypeID, planID string, params *CreateTeamMemberParams) (response PlanPersonResponse, err error) {
+func CreateTeamMember(ctx context.Context, serviceTypeID, planID string, params *CreateTeamMemberParams) (response PlanPersonResponse, err error) {
 	if params == nil {
 		return response, fmt.Errorf("params cannot be nil")
 	}
@@ -137,7 +140,7 @@ func CreateTeamMember(serviceTypeID, planID string, params *CreateTeamMemberPara
 		},
 	}
 
-	response, err = NewRequest[PlanPersonResponse]("POST", url, NewRequestBodyWithRelationships(attributes, relationships))
+	response, err = NewRequest[PlanPersonResponse](ctx, "POST", url, NewRequestBodyWithRelationships(attributes, relationships))
 
 	return
 }
@@ -145,10 +148,10 @@ func CreateTeamMember(serviceTypeID, planID string, params *CreateTeamMemberPara
 // DeleteTeamMember removes a plan assignment, addressed through the same
 // plan-scoped path it was created on - see teamMembersPath's doc comment
 // for why this SDK doesn't use PCO's documented person-scoped delete path.
-func DeleteTeamMember(serviceTypeID, planID, planPersonID string) (err error) {
+func DeleteTeamMember(ctx context.Context, serviceTypeID, planID, planPersonID string) (err error) {
 	url := fmt.Sprintf("%s/%s/%s", baseURL, teamMembersPath(serviceTypeID, planID), planPersonID)
 
-	_, err = NewRequest[struct{}]("DELETE", url, nil)
+	_, err = NewRequest[struct{}](ctx, "DELETE", url, nil)
 
 	return
 }
@@ -169,7 +172,7 @@ type PersonPlanPeopleParams struct {
 // they've been assigned to, across any team - filterable to one team via
 // TeamID. This is how the church app looks up someone's past serving dates
 // for a position to check against their schedule_preference.
-func GetPersonPlanPeople(personID string, params *PersonPlanPeopleParams) (response PlanPersonListResponse, err error) {
+func GetPersonPlanPeople(ctx context.Context, personID string, params *PersonPlanPeopleParams) (response PlanPersonListResponse, err error) {
 	if params == nil {
 		params = &PersonPlanPeopleParams{}
 	}
@@ -182,7 +185,7 @@ func GetPersonPlanPeople(personID string, params *PersonPlanPeopleParams) (respo
 
 	url := fmt.Sprintf("%s/%s%s", baseURL, planPeoplePath(personID), q.Encode())
 
-	response, err = NewRequest[PlanPersonListResponse]("GET", url, nil)
+	response, err = NewRequest[PlanPersonListResponse](ctx, "GET", url, nil)
 
 	return
 }

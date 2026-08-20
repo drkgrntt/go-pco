@@ -1,6 +1,7 @@
 package pco
 
 import (
+	"context"
 	"net/http"
 	"testing"
 )
@@ -31,7 +32,7 @@ func TestGetPeopleBuildsWhereFilters(t *testing.T) {
 		writeJSON(t, w, http.StatusOK, `{"data":[{"type":"Person","id":"1","attributes":{"first_name":"Ada","last_name":"Lovelace"}}]}`)
 	})
 
-	response, err := GetPeople(&PeopleParams{
+	response, err := GetPeople(context.Background(), &PeopleParams{
 		FirstName: "Ada",
 		LastName:  "Lovelace",
 		Email:     "ada@example.com",
@@ -55,7 +56,7 @@ func TestGetPeopleBuildsIncludeParam(t *testing.T) {
 		writeJSON(t, w, http.StatusOK, `{"data":[]}`)
 	})
 
-	if _, err := GetPeople(&PeopleParams{Include: []string{"emails", "addresses"}}); err != nil {
+	if _, err := GetPeople(context.Background(), &PeopleParams{Include: []string{"emails", "addresses"}}); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
@@ -70,7 +71,7 @@ func TestGetPeopleBuildsOrderByParam(t *testing.T) {
 		writeJSON(t, w, http.StatusOK, `{"data":[]}`)
 	})
 
-	if _, err := GetPeople(&PeopleParams{OrderBy: "-created_at"}); err != nil {
+	if _, err := GetPeople(context.Background(), &PeopleParams{OrderBy: "-created_at"}); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
@@ -96,7 +97,7 @@ func TestGetPeopleDecodesRelationshipsAndIncluded(t *testing.T) {
 		}`)
 	})
 
-	response, err := GetPeople(&PeopleParams{Include: []string{"emails", "addresses", "phone_numbers", "organization"}})
+	response, err := GetPeople(context.Background(), &PeopleParams{Include: []string{"emails", "addresses", "phone_numbers", "organization"}})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -131,7 +132,7 @@ func TestGetPeopleNilParams(t *testing.T) {
 		writeJSON(t, w, http.StatusOK, `{"data":[]}`)
 	})
 
-	if _, err := GetPeople(nil); err != nil {
+	if _, err := GetPeople(context.Background(), nil); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
@@ -144,7 +145,7 @@ func TestGetPerson(t *testing.T) {
 		writeJSON(t, w, http.StatusOK, `{"data":{"type":"Person","id":"1","attributes":{"first_name":"Ada","last_name":"Lovelace"}}}`)
 	})
 
-	response, err := GetPerson("1")
+	response, err := GetPerson(context.Background(), "1")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -165,7 +166,7 @@ func TestCreatePerson(t *testing.T) {
 		writeJSON(t, w, http.StatusCreated, `{"data":{"type":"Person","id":"42","attributes":{"first_name":"Ada","last_name":"Lovelace"}}}`)
 	})
 
-	response, err := CreatePerson(&CreatePersonParams{FirstName: "Ada", LastName: "Lovelace"})
+	response, err := CreatePerson(context.Background(), &CreatePersonParams{FirstName: "Ada", LastName: "Lovelace"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -175,7 +176,7 @@ func TestCreatePerson(t *testing.T) {
 }
 
 func TestCreatePersonNilParams(t *testing.T) {
-	if _, err := CreatePerson(nil); err == nil {
+	if _, err := CreatePerson(context.Background(), nil); err == nil {
 		t.Fatal("expected an error for nil params")
 	}
 }

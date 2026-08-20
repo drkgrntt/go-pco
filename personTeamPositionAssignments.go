@@ -1,6 +1,9 @@
 package pco
 
-import "fmt"
+import (
+	"context"
+	"fmt"
+)
 
 // personTeamPositionAssignmentsPath is the team_position-scoped path used to
 // list and create assignments; PCO documents update/delete against the same
@@ -82,7 +85,7 @@ type PersonTeamPositionAssignmentsParams struct {
 // position's candidate pool for the Team Builder (mirroring how the full
 // song library is Build a Set's candidate pool) and the source of each
 // candidate's serving-frequency preference.
-func GetPersonTeamPositionAssignments(teamID, teamPositionID string, params *PersonTeamPositionAssignmentsParams) (response PersonTeamPositionAssignmentListResponse, err error) {
+func GetPersonTeamPositionAssignments(ctx context.Context, teamID, teamPositionID string, params *PersonTeamPositionAssignmentsParams) (response PersonTeamPositionAssignmentListResponse, err error) {
 	if params == nil {
 		params = &PersonTeamPositionAssignmentsParams{}
 	}
@@ -91,7 +94,7 @@ func GetPersonTeamPositionAssignments(teamID, teamPositionID string, params *Per
 
 	url := fmt.Sprintf("%s/%s%s", baseURL, personTeamPositionAssignmentsPath(teamID, teamPositionID), q.Encode())
 
-	response, err = NewRequest[PersonTeamPositionAssignmentListResponse]("GET", url, nil)
+	response, err = NewRequest[PersonTeamPositionAssignmentListResponse](ctx, "GET", url, nil)
 
 	return
 }
@@ -106,7 +109,7 @@ type CreatePersonTeamPositionAssignmentParams struct {
 // separate "can serve this position" from "how often," so setting a
 // preference for someone not yet eligible for the position also makes them
 // eligible.
-func CreatePersonTeamPositionAssignment(teamID, teamPositionID string, params *CreatePersonTeamPositionAssignmentParams) (response PersonTeamPositionAssignmentResponse, err error) {
+func CreatePersonTeamPositionAssignment(ctx context.Context, teamID, teamPositionID string, params *CreatePersonTeamPositionAssignmentParams) (response PersonTeamPositionAssignmentResponse, err error) {
 	if params == nil {
 		return response, fmt.Errorf("params cannot be nil")
 	}
@@ -122,7 +125,7 @@ func CreatePersonTeamPositionAssignment(teamID, teamPositionID string, params *C
 		},
 	}
 
-	response, err = NewRequest[PersonTeamPositionAssignmentResponse]("POST", url, NewRequestBodyWithRelationships(attributes, relationships))
+	response, err = NewRequest[PersonTeamPositionAssignmentResponse](ctx, "POST", url, NewRequestBodyWithRelationships(attributes, relationships))
 
 	return
 }
@@ -133,7 +136,7 @@ type UpdatePersonTeamPositionAssignmentParams struct {
 
 // UpdatePersonTeamPositionAssignment changes an existing assignment's
 // serving-frequency preference.
-func UpdatePersonTeamPositionAssignment(teamID, teamPositionID, assignmentID string, params *UpdatePersonTeamPositionAssignmentParams) (response PersonTeamPositionAssignmentResponse, err error) {
+func UpdatePersonTeamPositionAssignment(ctx context.Context, teamID, teamPositionID, assignmentID string, params *UpdatePersonTeamPositionAssignmentParams) (response PersonTeamPositionAssignmentResponse, err error) {
 	if params == nil {
 		return response, fmt.Errorf("params cannot be nil")
 	}
@@ -144,17 +147,17 @@ func UpdatePersonTeamPositionAssignment(teamID, teamPositionID, assignmentID str
 		"schedule_preference": params.SchedulePreference,
 	}
 
-	response, err = NewRequest[PersonTeamPositionAssignmentResponse]("PATCH", url, NewRequestBody(attributes))
+	response, err = NewRequest[PersonTeamPositionAssignmentResponse](ctx, "PATCH", url, NewRequestBody(attributes))
 
 	return
 }
 
 // DeletePersonTeamPositionAssignment removes a person's eligibility (and
 // preference) for a position entirely.
-func DeletePersonTeamPositionAssignment(teamID, teamPositionID, assignmentID string) (err error) {
+func DeletePersonTeamPositionAssignment(ctx context.Context, teamID, teamPositionID, assignmentID string) (err error) {
 	url := fmt.Sprintf("%s/%s/%s", baseURL, personTeamPositionAssignmentsPath(teamID, teamPositionID), assignmentID)
 
-	_, err = NewRequest[struct{}]("DELETE", url, nil)
+	_, err = NewRequest[struct{}](ctx, "DELETE", url, nil)
 
 	return
 }

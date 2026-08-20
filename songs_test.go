@@ -1,6 +1,7 @@
 package pco
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"reflect"
@@ -34,7 +35,7 @@ func TestGetSongs(t *testing.T) {
 		}]}`)
 	})
 
-	response, err := GetSongs(&SongsParams{OrderBy: "-created_at", PerPage: 10})
+	response, err := GetSongs(context.Background(), &SongsParams{OrderBy: "-created_at", PerPage: 10})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -59,7 +60,7 @@ func TestGetSongsNilParams(t *testing.T) {
 		writeJSON(t, w, http.StatusOK, `{"data":[]}`)
 	})
 
-	if _, err := GetSongs(nil); err != nil {
+	if _, err := GetSongs(context.Background(), nil); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
@@ -105,7 +106,7 @@ func TestGetSongsLastScheduledShortDatesAsString(t *testing.T) {
 		}]}`)
 	})
 
-	response, err := GetSongs(nil)
+	response, err := GetSongs(context.Background(), nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -125,7 +126,7 @@ func TestGetSong(t *testing.T) {
 		writeJSON(t, w, http.StatusOK, `{"data":{"type":"Song","id":"1","attributes":{"title":"Holy Forever"}}}`)
 	})
 
-	response, err := GetSong("1")
+	response, err := GetSong(context.Background(), "1")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -157,7 +158,7 @@ func TestCreateSong(t *testing.T) {
 		writeJSON(t, w, http.StatusCreated, `{"data":{"type":"Song","id":"1","attributes":{"title":"Holy Forever"}}}`)
 	})
 
-	response, err := CreateSong(&CreateSongParams{Title: "Holy Forever", Author: "Brian Johnson"})
+	response, err := CreateSong(context.Background(), &CreateSongParams{Title: "Holy Forever", Author: "Brian Johnson"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -175,13 +176,13 @@ func TestCreateSongOmitsUnsetFields(t *testing.T) {
 		writeJSON(t, w, http.StatusCreated, `{"data":{"type":"Song","id":"1"}}`)
 	})
 
-	if _, err := CreateSong(&CreateSongParams{Title: "Holy Forever"}); err != nil {
+	if _, err := CreateSong(context.Background(), &CreateSongParams{Title: "Holy Forever"}); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
 func TestCreateSongNilParams(t *testing.T) {
-	if _, err := CreateSong(nil); err == nil {
+	if _, err := CreateSong(context.Background(), nil); err == nil {
 		t.Fatal("expected an error for nil params")
 	}
 }

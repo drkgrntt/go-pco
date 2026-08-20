@@ -1,6 +1,7 @@
 package pco
 
 import (
+	"context"
 	"net/http"
 	"testing"
 )
@@ -18,7 +19,7 @@ func TestGetPersonTeamPositionAssignments(t *testing.T) {
 		}]}`)
 	})
 
-	response, err := GetPersonTeamPositionAssignments("1", "2", nil)
+	response, err := GetPersonTeamPositionAssignments(context.Background(), "1", "2", nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -51,7 +52,7 @@ func TestCreatePersonTeamPositionAssignment(t *testing.T) {
 		writeJSON(t, w, http.StatusCreated, `{"data":{"type":"PersonTeamPositionAssignment","id":"1","attributes":{"schedule_preference":"Every other week"}}}`)
 	})
 
-	response, err := CreatePersonTeamPositionAssignment("1", "2", &CreatePersonTeamPositionAssignmentParams{
+	response, err := CreatePersonTeamPositionAssignment(context.Background(), "1", "2", &CreatePersonTeamPositionAssignmentParams{
 		PersonID:           "5",
 		SchedulePreference: SchedulePreferenceEveryOtherWeek,
 	})
@@ -64,7 +65,7 @@ func TestCreatePersonTeamPositionAssignment(t *testing.T) {
 }
 
 func TestCreatePersonTeamPositionAssignmentNilParams(t *testing.T) {
-	if _, err := CreatePersonTeamPositionAssignment("1", "2", nil); err == nil {
+	if _, err := CreatePersonTeamPositionAssignment(context.Background(), "1", "2", nil); err == nil {
 		t.Fatal("expected an error for nil params")
 	}
 }
@@ -84,7 +85,7 @@ func TestUpdatePersonTeamPositionAssignment(t *testing.T) {
 		writeJSON(t, w, http.StatusOK, `{"data":{"type":"PersonTeamPositionAssignment","id":"3","attributes":{"schedule_preference":"Once a month"}}}`)
 	})
 
-	response, err := UpdatePersonTeamPositionAssignment("1", "2", "3", &UpdatePersonTeamPositionAssignmentParams{
+	response, err := UpdatePersonTeamPositionAssignment(context.Background(), "1", "2", "3", &UpdatePersonTeamPositionAssignmentParams{
 		SchedulePreference: SchedulePreferenceOnceAMonth,
 	})
 	if err != nil {
@@ -106,7 +107,7 @@ func TestDeletePersonTeamPositionAssignment(t *testing.T) {
 		w.WriteHeader(http.StatusNoContent)
 	})
 
-	if err := DeletePersonTeamPositionAssignment("1", "2", "3"); err != nil {
+	if err := DeletePersonTeamPositionAssignment(context.Background(), "1", "2", "3"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }

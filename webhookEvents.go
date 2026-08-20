@@ -1,6 +1,7 @@
 package pco
 
 import (
+	"context"
 	"fmt"
 	"time"
 )
@@ -54,7 +55,7 @@ func webhookEventsPath(subscriptionID string) string {
 // subscription. Each Attributes.Payload is a JSON-encoded string of the
 // same envelope PCO POSTs to your webhook URL -- decode it with
 // ParseEventPayload.
-func GetWebhookEvents(subscriptionID string, params *WebhookEventsParams) (response WebhookEventListResponse, err error) {
+func GetWebhookEvents(ctx context.Context, subscriptionID string, params *WebhookEventsParams) (response WebhookEventListResponse, err error) {
 	if params == nil {
 		params = &WebhookEventsParams{}
 	}
@@ -63,35 +64,35 @@ func GetWebhookEvents(subscriptionID string, params *WebhookEventsParams) (respo
 
 	url := fmt.Sprintf("%s/%s%s", baseURL, webhookEventsPath(subscriptionID), q.Encode())
 
-	response, err = NewRequest[WebhookEventListResponse]("GET", url, nil)
+	response, err = NewRequest[WebhookEventListResponse](ctx, "GET", url, nil)
 
 	return
 }
 
-func GetWebhookEvent(subscriptionID, eventID string) (response WebhookEventResponse, err error) {
+func GetWebhookEvent(ctx context.Context, subscriptionID, eventID string) (response WebhookEventResponse, err error) {
 	url := fmt.Sprintf("%s/%s/%s", baseURL, webhookEventsPath(subscriptionID), eventID)
 
-	response, err = NewRequest[WebhookEventResponse]("GET", url, nil)
+	response, err = NewRequest[WebhookEventResponse](ctx, "GET", url, nil)
 
 	return
 }
 
 // IgnoreWebhookEvent marks a pending event as ignored so PCO stops
 // retrying delivery for it.
-func IgnoreWebhookEvent(subscriptionID, eventID string) (response WebhookEventResponse, err error) {
+func IgnoreWebhookEvent(ctx context.Context, subscriptionID, eventID string) (response WebhookEventResponse, err error) {
 	url := fmt.Sprintf("%s/%s/%s/ignore", baseURL, webhookEventsPath(subscriptionID), eventID)
 
-	response, err = NewRequest[WebhookEventResponse]("POST", url, nil)
+	response, err = NewRequest[WebhookEventResponse](ctx, "POST", url, nil)
 
 	return
 }
 
 // RedeliverWebhookEvent asks PCO to resend a previously failed/skipped
 // event.
-func RedeliverWebhookEvent(subscriptionID, eventID string) (response WebhookEventResponse, err error) {
+func RedeliverWebhookEvent(ctx context.Context, subscriptionID, eventID string) (response WebhookEventResponse, err error) {
 	url := fmt.Sprintf("%s/%s/%s/redeliver", baseURL, webhookEventsPath(subscriptionID), eventID)
 
-	response, err = NewRequest[WebhookEventResponse]("POST", url, nil)
+	response, err = NewRequest[WebhookEventResponse](ctx, "POST", url, nil)
 
 	return
 }

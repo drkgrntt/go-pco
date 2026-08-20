@@ -1,6 +1,7 @@
 package pco
 
 import (
+	"context"
 	"net/http"
 	"testing"
 )
@@ -25,7 +26,7 @@ func TestCreateAddress(t *testing.T) {
 		writeJSON(t, w, http.StatusCreated, `{"data":{"type":"Address","id":"1","attributes":{"street_line_1":"123 Main St","primary":true}}}`)
 	})
 
-	response, err := CreateAddress("123", &AddressCreateParams{AddressLine1: "123 Main St", Primary: true})
+	response, err := CreateAddress(context.Background(), "123", &AddressCreateParams{AddressLine1: "123 Main St", Primary: true})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -35,7 +36,7 @@ func TestCreateAddress(t *testing.T) {
 }
 
 func TestCreateAddressNilParams(t *testing.T) {
-	if _, err := CreateAddress("123", nil); err == nil {
+	if _, err := CreateAddress(context.Background(), "123", nil); err == nil {
 		t.Fatal("expected an error for nil params")
 	}
 }
@@ -45,7 +46,7 @@ func TestCreateAddressErrorStatus(t *testing.T) {
 		writeJSON(t, w, http.StatusUnprocessableEntity, `{"errors":[{"detail":"zip is invalid"}]}`)
 	})
 
-	_, err := CreateAddress("123", &AddressCreateParams{Zip: "not-a-zip"})
+	_, err := CreateAddress(context.Background(), "123", &AddressCreateParams{Zip: "not-a-zip"})
 	if err == nil {
 		t.Fatal("expected an error for a 422 response")
 	}

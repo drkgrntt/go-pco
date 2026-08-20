@@ -1,6 +1,7 @@
 package pco
 
 import (
+	"context"
 	"fmt"
 	"time"
 )
@@ -44,7 +45,7 @@ type WebhookSubscriptionsParams struct {
 }
 
 // GetWebhookSubscriptions lists the webhook subscriptions on the account.
-func GetWebhookSubscriptions(params *WebhookSubscriptionsParams) (response WebhookSubscriptionListResponse, err error) {
+func GetWebhookSubscriptions(ctx context.Context, params *WebhookSubscriptionsParams) (response WebhookSubscriptionListResponse, err error) {
 	if params == nil {
 		params = &WebhookSubscriptionsParams{}
 	}
@@ -56,15 +57,15 @@ func GetWebhookSubscriptions(params *WebhookSubscriptionsParams) (response Webho
 
 	url := fmt.Sprintf("%s/%s%s", baseURL, webhookSubscriptionsPath, q.Encode())
 
-	response, err = NewRequest[WebhookSubscriptionListResponse]("GET", url, nil)
+	response, err = NewRequest[WebhookSubscriptionListResponse](ctx, "GET", url, nil)
 
 	return
 }
 
-func GetWebhookSubscription(id string) (response WebhookSubscriptionResponse, err error) {
+func GetWebhookSubscription(ctx context.Context, id string) (response WebhookSubscriptionResponse, err error) {
 	url := fmt.Sprintf("%s/%s/%s", baseURL, webhookSubscriptionsPath, id)
 
-	response, err = NewRequest[WebhookSubscriptionResponse]("GET", url, nil)
+	response, err = NewRequest[WebhookSubscriptionResponse](ctx, "GET", url, nil)
 
 	return
 }
@@ -81,7 +82,7 @@ type CreateWebhookSubscriptionParams struct {
 // Attributes.AuthenticitySecret is only ever returned in full at creation
 // time (and after RotateWebhookSubscriptionSecret) -- store it somewhere
 // you can read it back from for signature verification.
-func CreateWebhookSubscription(params *CreateWebhookSubscriptionParams) (response WebhookSubscriptionResponse, err error) {
+func CreateWebhookSubscription(ctx context.Context, params *CreateWebhookSubscriptionParams) (response WebhookSubscriptionResponse, err error) {
 	if params == nil {
 		return response, fmt.Errorf("params cannot be nil")
 	}
@@ -94,39 +95,39 @@ func CreateWebhookSubscription(params *CreateWebhookSubscriptionParams) (respons
 		"active": params.Active,
 	})
 
-	response, err = NewRequest[WebhookSubscriptionResponse]("POST", url, body)
+	response, err = NewRequest[WebhookSubscriptionResponse](ctx, "POST", url, body)
 
 	return
 }
 
 // UpdateWebhookSubscriptionActive updates "active", the only attribute PCO
 // allows changing on an existing subscription.
-func UpdateWebhookSubscriptionActive(id string, active bool) (response WebhookSubscriptionResponse, err error) {
+func UpdateWebhookSubscriptionActive(ctx context.Context, id string, active bool) (response WebhookSubscriptionResponse, err error) {
 	url := fmt.Sprintf("%s/%s/%s", baseURL, webhookSubscriptionsPath, id)
 
 	body := NewRequestBody(map[string]any{
 		"active": active,
 	})
 
-	response, err = NewRequest[WebhookSubscriptionResponse]("PATCH", url, body)
+	response, err = NewRequest[WebhookSubscriptionResponse](ctx, "PATCH", url, body)
 
 	return
 }
 
-func DeleteWebhookSubscription(id string) (err error) {
+func DeleteWebhookSubscription(ctx context.Context, id string) (err error) {
 	url := fmt.Sprintf("%s/%s/%s", baseURL, webhookSubscriptionsPath, id)
 
-	_, err = NewRequest[struct{}]("DELETE", url, nil)
+	_, err = NewRequest[struct{}](ctx, "DELETE", url, nil)
 
 	return
 }
 
 // RotateWebhookSubscriptionSecret invalidates the subscription's current
 // authenticity_secret and returns the subscription with the new one.
-func RotateWebhookSubscriptionSecret(id string) (response WebhookSubscriptionResponse, err error) {
+func RotateWebhookSubscriptionSecret(ctx context.Context, id string) (response WebhookSubscriptionResponse, err error) {
 	url := fmt.Sprintf("%s/%s/%s/rotate_secret", baseURL, webhookSubscriptionsPath, id)
 
-	response, err = NewRequest[WebhookSubscriptionResponse]("POST", url, nil)
+	response, err = NewRequest[WebhookSubscriptionResponse](ctx, "POST", url, nil)
 
 	return
 }

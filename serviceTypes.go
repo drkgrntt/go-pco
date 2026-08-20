@@ -1,6 +1,7 @@
 package pco
 
 import (
+	"context"
 	"fmt"
 	"time"
 )
@@ -68,7 +69,7 @@ type ServiceTypesParams struct {
 	Offset  int
 }
 
-func GetServiceTypes(params *ServiceTypesParams) (response ServiceTypeListResponse, err error) {
+func GetServiceTypes(ctx context.Context, params *ServiceTypesParams) (response ServiceTypeListResponse, err error) {
 	if params == nil {
 		params = &ServiceTypesParams{}
 	}
@@ -77,15 +78,15 @@ func GetServiceTypes(params *ServiceTypesParams) (response ServiceTypeListRespon
 
 	url := fmt.Sprintf("%s/%s%s", baseURL, serviceTypesPath, q.Encode())
 
-	response, err = NewRequest[ServiceTypeListResponse]("GET", url, nil)
+	response, err = NewRequest[ServiceTypeListResponse](ctx, "GET", url, nil)
 
 	return
 }
 
-func GetServiceType(id string) (response ServiceTypeResponse, err error) {
+func GetServiceType(ctx context.Context, id string) (response ServiceTypeResponse, err error) {
 	url := fmt.Sprintf("%s/%s/%s", baseURL, serviceTypesPath, id)
 
-	response, err = NewRequest[ServiceTypeResponse]("GET", url, nil)
+	response, err = NewRequest[ServiceTypeResponse](ctx, "GET", url, nil)
 
 	return
 }
@@ -94,7 +95,7 @@ type CreateServiceTypeParams struct {
 	Name string
 }
 
-func CreateServiceType(params *CreateServiceTypeParams) (response ServiceTypeResponse, err error) {
+func CreateServiceType(ctx context.Context, params *CreateServiceTypeParams) (response ServiceTypeResponse, err error) {
 	if params == nil {
 		return response, fmt.Errorf("params cannot be nil")
 	}
@@ -105,7 +106,7 @@ func CreateServiceType(params *CreateServiceTypeParams) (response ServiceTypeRes
 		"name": params.Name,
 	})
 
-	response, err = NewRequest[ServiceTypeResponse]("POST", url, body)
+	response, err = NewRequest[ServiceTypeResponse](ctx, "POST", url, body)
 
 	return
 }
@@ -114,7 +115,7 @@ type UpdateServiceTypeParams struct {
 	Name string
 }
 
-func UpdateServiceType(id string, params *UpdateServiceTypeParams) (response ServiceTypeResponse, err error) {
+func UpdateServiceType(ctx context.Context, id string, params *UpdateServiceTypeParams) (response ServiceTypeResponse, err error) {
 	if params == nil {
 		return response, fmt.Errorf("params cannot be nil")
 	}
@@ -125,15 +126,15 @@ func UpdateServiceType(id string, params *UpdateServiceTypeParams) (response Ser
 		"name": params.Name,
 	})
 
-	response, err = NewRequest[ServiceTypeResponse]("PATCH", url, body)
+	response, err = NewRequest[ServiceTypeResponse](ctx, "PATCH", url, body)
 
 	return
 }
 
-func DeleteServiceType(id string) (err error) {
+func DeleteServiceType(ctx context.Context, id string) (err error) {
 	url := fmt.Sprintf("%s/%s/%s", baseURL, serviceTypesPath, id)
 
-	_, err = NewRequest[struct{}]("DELETE", url, nil)
+	_, err = NewRequest[struct{}](ctx, "DELETE", url, nil)
 
 	return
 }

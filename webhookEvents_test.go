@@ -1,6 +1,7 @@
 package pco
 
 import (
+	"context"
 	"net/http"
 	"testing"
 )
@@ -13,7 +14,7 @@ func TestGetWebhookEvents(t *testing.T) {
 		writeJSON(t, w, http.StatusOK, `{"data":[{"type":"Event","id":"1","attributes":{"status":"delivered","uuid":"abc"}}]}`)
 	})
 
-	response, err := GetWebhookEvents("sub-1", nil)
+	response, err := GetWebhookEvents(context.Background(), "sub-1", nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -30,7 +31,7 @@ func TestGetWebhookEvent(t *testing.T) {
 		writeJSON(t, w, http.StatusOK, `{"data":{"type":"Event","id":"evt-1","attributes":{"status":"pending"}}}`)
 	})
 
-	response, err := GetWebhookEvent("sub-1", "evt-1")
+	response, err := GetWebhookEvent(context.Background(), "sub-1", "evt-1")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -50,7 +51,7 @@ func TestIgnoreWebhookEvent(t *testing.T) {
 		writeJSON(t, w, http.StatusOK, `{"data":{"type":"Event","id":"evt-1","attributes":{"status":"skipped"}}}`)
 	})
 
-	response, err := IgnoreWebhookEvent("sub-1", "evt-1")
+	response, err := IgnoreWebhookEvent(context.Background(), "sub-1", "evt-1")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -70,7 +71,7 @@ func TestRedeliverWebhookEvent(t *testing.T) {
 		writeJSON(t, w, http.StatusOK, `{"data":{"type":"Event","id":"evt-1","attributes":{"status":"pending"}}}`)
 	})
 
-	if _, err := RedeliverWebhookEvent("sub-1", "evt-1"); err != nil {
+	if _, err := RedeliverWebhookEvent(context.Background(), "sub-1", "evt-1"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }

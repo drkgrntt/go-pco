@@ -1,6 +1,7 @@
 package pco
 
 import (
+	"context"
 	"fmt"
 	"time"
 )
@@ -64,7 +65,7 @@ type ItemsParams struct {
 	Offset  int
 }
 
-func GetItems(serviceTypeID, planID string, params *ItemsParams) (response ItemListResponse, err error) {
+func GetItems(ctx context.Context, serviceTypeID, planID string, params *ItemsParams) (response ItemListResponse, err error) {
 	if params == nil {
 		params = &ItemsParams{}
 	}
@@ -73,15 +74,15 @@ func GetItems(serviceTypeID, planID string, params *ItemsParams) (response ItemL
 
 	url := fmt.Sprintf("%s/%s%s", baseURL, itemsPath(serviceTypeID, planID), q.Encode())
 
-	response, err = NewRequest[ItemListResponse]("GET", url, nil)
+	response, err = NewRequest[ItemListResponse](ctx, "GET", url, nil)
 
 	return
 }
 
-func GetItem(serviceTypeID, planID, itemID string) (response ItemResponse, err error) {
+func GetItem(ctx context.Context, serviceTypeID, planID, itemID string) (response ItemResponse, err error) {
 	url := fmt.Sprintf("%s/%s/%s", baseURL, itemsPath(serviceTypeID, planID), itemID)
 
-	response, err = NewRequest[ItemResponse]("GET", url, nil)
+	response, err = NewRequest[ItemResponse](ctx, "GET", url, nil)
 
 	return
 }
@@ -114,7 +115,7 @@ type CreateItemParams struct {
 	SongID string
 }
 
-func CreateItem(serviceTypeID, planID string, params *CreateItemParams) (response ItemResponse, err error) {
+func CreateItem(ctx context.Context, serviceTypeID, planID string, params *CreateItemParams) (response ItemResponse, err error) {
 	if params == nil {
 		return response, fmt.Errorf("params cannot be nil")
 	}
@@ -141,7 +142,7 @@ func CreateItem(serviceTypeID, planID string, params *CreateItemParams) (respons
 		body = NewRequestBody(attributes)
 	}
 
-	response, err = NewRequest[ItemResponse]("POST", url, body)
+	response, err = NewRequest[ItemResponse](ctx, "POST", url, body)
 
 	return
 }
@@ -163,7 +164,7 @@ type UpdateItemParams struct {
 	Length          *int
 }
 
-func UpdateItem(serviceTypeID, planID, itemID string, params *UpdateItemParams) (response ItemResponse, err error) {
+func UpdateItem(ctx context.Context, serviceTypeID, planID, itemID string, params *UpdateItemParams) (response ItemResponse, err error) {
 	if params == nil {
 		return response, fmt.Errorf("params cannot be nil")
 	}
@@ -184,15 +185,15 @@ func UpdateItem(serviceTypeID, planID, itemID string, params *UpdateItemParams) 
 		attributes["length"] = *params.Length
 	}
 
-	response, err = NewRequest[ItemResponse]("PATCH", url, NewRequestBody(attributes))
+	response, err = NewRequest[ItemResponse](ctx, "PATCH", url, NewRequestBody(attributes))
 
 	return
 }
 
-func DeleteItem(serviceTypeID, planID, itemID string) (err error) {
+func DeleteItem(ctx context.Context, serviceTypeID, planID, itemID string) (err error) {
 	url := fmt.Sprintf("%s/%s/%s", baseURL, itemsPath(serviceTypeID, planID), itemID)
 
-	_, err = NewRequest[struct{}]("DELETE", url, nil)
+	_, err = NewRequest[struct{}](ctx, "DELETE", url, nil)
 
 	return
 }
@@ -206,7 +207,7 @@ func DeleteItem(serviceTypeID, planID, itemID string) (err error) {
 // there's no documented partial/delta form, so omitting an item likely
 // misplaces it rather than leaving it alone. On success PCO returns 204 No
 // Content, matched here by discarding the response body (see DeleteItem).
-func ReorderItems(serviceTypeID, planID string, itemIDs []string) (err error) {
+func ReorderItems(ctx context.Context, serviceTypeID, planID string, itemIDs []string) (err error) {
 	url := fmt.Sprintf("%s/%s/%s/item_reorder", baseURL, plansPath(serviceTypeID), planID)
 
 	body := RequestBody{
@@ -218,7 +219,7 @@ func ReorderItems(serviceTypeID, planID string, itemIDs []string) (err error) {
 		},
 	}
 
-	_, err = NewRequest[struct{}]("POST", url, body)
+	_, err = NewRequest[struct{}](ctx, "POST", url, body)
 
 	return
 }

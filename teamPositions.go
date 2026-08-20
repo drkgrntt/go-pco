@@ -1,6 +1,9 @@
 package pco
 
-import "fmt"
+import (
+	"context"
+	"fmt"
+)
 
 func teamPositionsPath(teamID string) string {
 	return fmt.Sprintf("services/v2/teams/%s/team_positions", teamID)
@@ -40,7 +43,7 @@ type TeamPositionsParams struct {
 // GetTeamPositions lists a team's positions (e.g. "Vocals", "Drums", "Sound
 // Tech"). Read-only in PCO - positions are configured in Planning Center
 // itself, not through this API.
-func GetTeamPositions(teamID string, params *TeamPositionsParams) (response TeamPositionListResponse, err error) {
+func GetTeamPositions(ctx context.Context, teamID string, params *TeamPositionsParams) (response TeamPositionListResponse, err error) {
 	if params == nil {
 		params = &TeamPositionsParams{}
 	}
@@ -49,7 +52,7 @@ func GetTeamPositions(teamID string, params *TeamPositionsParams) (response Team
 
 	url := fmt.Sprintf("%s/%s%s", baseURL, teamPositionsPath(teamID), q.Encode())
 
-	response, err = NewRequest[TeamPositionListResponse]("GET", url, nil)
+	response, err = NewRequest[TeamPositionListResponse](ctx, "GET", url, nil)
 
 	return
 }

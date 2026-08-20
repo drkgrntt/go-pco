@@ -1,6 +1,7 @@
 package pco
 
 import (
+	"context"
 	"fmt"
 	"time"
 )
@@ -119,7 +120,7 @@ type PeopleParams struct {
 	Offset  int
 }
 
-func GetPeople(params *PeopleParams) (response PersonListResponse, err error) {
+func GetPeople(ctx context.Context, params *PeopleParams) (response PersonListResponse, err error) {
 	if params == nil {
 		params = &PeopleParams{}
 	}
@@ -136,15 +137,15 @@ func GetPeople(params *PeopleParams) (response PersonListResponse, err error) {
 
 	url := fmt.Sprintf("%s/%s%s", baseURL, peoplePath, q.Encode())
 
-	response, err = NewRequest[PersonListResponse]("GET", url, nil)
+	response, err = NewRequest[PersonListResponse](ctx, "GET", url, nil)
 
 	return
 }
 
-func GetPerson(id string) (response PersonResponse, err error) {
+func GetPerson(ctx context.Context, id string) (response PersonResponse, err error) {
 	url := fmt.Sprintf("%s/%s/%s", baseURL, peoplePath, id)
 
-	response, err = NewRequest[PersonResponse]("GET", url, nil)
+	response, err = NewRequest[PersonResponse](ctx, "GET", url, nil)
 
 	return
 }
@@ -154,7 +155,7 @@ type CreatePersonParams struct {
 	LastName  string
 }
 
-func CreatePerson(params *CreatePersonParams) (response PersonCreateResponse, err error) {
+func CreatePerson(ctx context.Context, params *CreatePersonParams) (response PersonCreateResponse, err error) {
 	if params == nil {
 		return response, fmt.Errorf("params cannot be nil")
 	}
@@ -166,7 +167,7 @@ func CreatePerson(params *CreatePersonParams) (response PersonCreateResponse, er
 		"last_name":  params.LastName,
 	})
 
-	response, err = NewRequest[PersonCreateResponse]("POST", url, body)
+	response, err = NewRequest[PersonCreateResponse](ctx, "POST", url, body)
 
 	return
 }

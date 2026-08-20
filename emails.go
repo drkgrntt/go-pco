@@ -1,6 +1,7 @@
 package pco
 
 import (
+	"context"
 	"fmt"
 	"time"
 )
@@ -40,7 +41,7 @@ type EmailCreateParams struct {
 	Primary  bool
 }
 
-func CreateEmail(personID string, params *EmailCreateParams) (response EmailCreateResponse, err error) {
+func CreateEmail(ctx context.Context, personID string, params *EmailCreateParams) (response EmailCreateResponse, err error) {
 	if params == nil {
 		return response, fmt.Errorf("params cannot be nil")
 	}
@@ -53,7 +54,7 @@ func CreateEmail(personID string, params *EmailCreateParams) (response EmailCrea
 		"primary":  params.Primary,
 	})
 
-	response, err = NewRequest[EmailCreateResponse]("POST", url, body)
+	response, err = NewRequest[EmailCreateResponse](ctx, "POST", url, body)
 
 	return
 }

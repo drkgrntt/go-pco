@@ -1,6 +1,7 @@
 package pco
 
 import (
+	"context"
 	"fmt"
 	"time"
 )
@@ -62,7 +63,7 @@ type BlockoutsParams struct {
 // someone during a date they've already marked unavailable. This SDK doesn't
 // create/update/destroy blockouts; that stays a volunteer's own action in
 // Planning Center.
-func GetBlockouts(personID string, params *BlockoutsParams) (response BlockoutListResponse, err error) {
+func GetBlockouts(ctx context.Context, personID string, params *BlockoutsParams) (response BlockoutListResponse, err error) {
 	if params == nil {
 		params = &BlockoutsParams{}
 	}
@@ -71,7 +72,7 @@ func GetBlockouts(personID string, params *BlockoutsParams) (response BlockoutLi
 
 	url := fmt.Sprintf("%s/%s%s", baseURL, blockoutsPath(personID), q.Encode())
 
-	response, err = NewRequest[BlockoutListResponse]("GET", url, nil)
+	response, err = NewRequest[BlockoutListResponse](ctx, "GET", url, nil)
 
 	return
 }

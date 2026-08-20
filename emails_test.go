@@ -1,6 +1,7 @@
 package pco
 
 import (
+	"context"
 	"net/http"
 	"testing"
 )
@@ -19,7 +20,7 @@ func TestCreateEmail(t *testing.T) {
 		writeJSON(t, w, http.StatusCreated, `{"data":{"type":"Email","id":"1","attributes":{"address":"ada@example.com","location":"Home"}}}`)
 	})
 
-	response, err := CreateEmail("123", &EmailCreateParams{Address: "ada@example.com", Location: "Home"})
+	response, err := CreateEmail(context.Background(), "123", &EmailCreateParams{Address: "ada@example.com", Location: "Home"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -29,7 +30,7 @@ func TestCreateEmail(t *testing.T) {
 }
 
 func TestCreateEmailNilParams(t *testing.T) {
-	if _, err := CreateEmail("123", nil); err == nil {
+	if _, err := CreateEmail(context.Background(), "123", nil); err == nil {
 		t.Fatal("expected an error for nil params")
 	}
 }

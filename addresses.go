@@ -1,6 +1,7 @@
 package pco
 
 import (
+	"context"
 	"fmt"
 	"time"
 )
@@ -50,7 +51,7 @@ type AddressCreateParams struct {
 	Primary      bool
 }
 
-func CreateAddress(personID string, params *AddressCreateParams) (response AddressCreateResponse, err error) {
+func CreateAddress(ctx context.Context, personID string, params *AddressCreateParams) (response AddressCreateResponse, err error) {
 	if params == nil {
 		return response, fmt.Errorf("params cannot be nil")
 	}
@@ -68,7 +69,7 @@ func CreateAddress(personID string, params *AddressCreateParams) (response Addre
 		"primary":       params.Primary,
 	})
 
-	response, err = NewRequest[AddressCreateResponse]("POST", url, body)
+	response, err = NewRequest[AddressCreateResponse](ctx, "POST", url, body)
 
 	return
 }

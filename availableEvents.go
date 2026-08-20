@@ -1,6 +1,9 @@
 package pco
 
-import "fmt"
+import (
+	"context"
+	"fmt"
+)
 
 const availableEventsPath = "webhooks/v2/available_events"
 
@@ -33,7 +36,7 @@ type AvailableEventsParams struct {
 // GetAvailableEvents lists every event PCO can send a webhook for (e.g.
 // "people.v2.events.person.created"). Use an entry's Attributes.Name as
 // CreateWebhookSubscriptionParams.Name to subscribe to it.
-func GetAvailableEvents(params *AvailableEventsParams) (response AvailableEventListResponse, err error) {
+func GetAvailableEvents(ctx context.Context, params *AvailableEventsParams) (response AvailableEventListResponse, err error) {
 	if params == nil {
 		params = &AvailableEventsParams{}
 	}
@@ -42,7 +45,7 @@ func GetAvailableEvents(params *AvailableEventsParams) (response AvailableEventL
 
 	url := fmt.Sprintf("%s/%s%s", baseURL, availableEventsPath, q.Encode())
 
-	response, err = NewRequest[AvailableEventListResponse]("GET", url, nil)
+	response, err = NewRequest[AvailableEventListResponse](ctx, "GET", url, nil)
 
 	return
 }

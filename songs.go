@@ -1,6 +1,7 @@
 package pco
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"time"
@@ -86,7 +87,7 @@ type SongsParams struct {
 	Offset  int
 }
 
-func GetSongs(params *SongsParams) (response SongListResponse, err error) {
+func GetSongs(ctx context.Context, params *SongsParams) (response SongListResponse, err error) {
 	if params == nil {
 		params = &SongsParams{}
 	}
@@ -98,15 +99,15 @@ func GetSongs(params *SongsParams) (response SongListResponse, err error) {
 
 	url := fmt.Sprintf("%s/%s%s", baseURL, songsPath, q.Encode())
 
-	response, err = NewRequest[SongListResponse]("GET", url, nil)
+	response, err = NewRequest[SongListResponse](ctx, "GET", url, nil)
 
 	return
 }
 
-func GetSong(id string) (response SongResponse, err error) {
+func GetSong(ctx context.Context, id string) (response SongResponse, err error) {
 	url := fmt.Sprintf("%s/%s/%s", baseURL, songsPath, id)
 
-	response, err = NewRequest[SongResponse]("GET", url, nil)
+	response, err = NewRequest[SongResponse](ctx, "GET", url, nil)
 
 	return
 }
@@ -126,7 +127,7 @@ type CreateSongParams struct {
 	Hidden     bool
 }
 
-func CreateSong(params *CreateSongParams) (response SongResponse, err error) {
+func CreateSong(ctx context.Context, params *CreateSongParams) (response SongResponse, err error) {
 	if params == nil {
 		return response, fmt.Errorf("params cannot be nil")
 	}
@@ -155,7 +156,7 @@ func CreateSong(params *CreateSongParams) (response SongResponse, err error) {
 		attributes["hidden"] = params.Hidden
 	}
 
-	response, err = NewRequest[SongResponse]("POST", url, NewRequestBody(attributes))
+	response, err = NewRequest[SongResponse](ctx, "POST", url, NewRequestBody(attributes))
 
 	return
 }

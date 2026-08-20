@@ -1,6 +1,7 @@
 package pco
 
 import (
+	"context"
 	"fmt"
 	"time"
 )
@@ -73,7 +74,7 @@ type PlansParams struct {
 	Offset  int
 }
 
-func GetPlans(serviceTypeID string, params *PlansParams) (response PlanListResponse, err error) {
+func GetPlans(ctx context.Context, serviceTypeID string, params *PlansParams) (response PlanListResponse, err error) {
 	if params == nil {
 		params = &PlansParams{}
 	}
@@ -86,15 +87,15 @@ func GetPlans(serviceTypeID string, params *PlansParams) (response PlanListRespo
 
 	url := fmt.Sprintf("%s/%s%s", baseURL, plansPath(serviceTypeID), q.Encode())
 
-	response, err = NewRequest[PlanListResponse]("GET", url, nil)
+	response, err = NewRequest[PlanListResponse](ctx, "GET", url, nil)
 
 	return
 }
 
-func GetPlan(serviceTypeID, planID string) (response PlanResponse, err error) {
+func GetPlan(ctx context.Context, serviceTypeID, planID string) (response PlanResponse, err error) {
 	url := fmt.Sprintf("%s/%s/%s", baseURL, plansPath(serviceTypeID), planID)
 
-	response, err = NewRequest[PlanResponse]("GET", url, nil)
+	response, err = NewRequest[PlanResponse](ctx, "GET", url, nil)
 
 	return
 }
@@ -106,7 +107,7 @@ type CreatePlanParams struct {
 	SeriesTitle string
 }
 
-func CreatePlan(serviceTypeID string, params *CreatePlanParams) (response PlanResponse, err error) {
+func CreatePlan(ctx context.Context, serviceTypeID string, params *CreatePlanParams) (response PlanResponse, err error) {
 	if params == nil {
 		return response, fmt.Errorf("params cannot be nil")
 	}
@@ -124,7 +125,7 @@ func CreatePlan(serviceTypeID string, params *CreatePlanParams) (response PlanRe
 		attributes["series_title"] = params.SeriesTitle
 	}
 
-	response, err = NewRequest[PlanResponse]("POST", url, NewRequestBody(attributes))
+	response, err = NewRequest[PlanResponse](ctx, "POST", url, NewRequestBody(attributes))
 
 	return
 }
@@ -135,7 +136,7 @@ type UpdatePlanParams struct {
 	RemindersDisabled *bool
 }
 
-func UpdatePlan(serviceTypeID, planID string, params *UpdatePlanParams) (response PlanResponse, err error) {
+func UpdatePlan(ctx context.Context, serviceTypeID, planID string, params *UpdatePlanParams) (response PlanResponse, err error) {
 	if params == nil {
 		return response, fmt.Errorf("params cannot be nil")
 	}
@@ -153,15 +154,15 @@ func UpdatePlan(serviceTypeID, planID string, params *UpdatePlanParams) (respons
 		attributes["reminders_disabled"] = *params.RemindersDisabled
 	}
 
-	response, err = NewRequest[PlanResponse]("PATCH", url, NewRequestBody(attributes))
+	response, err = NewRequest[PlanResponse](ctx, "PATCH", url, NewRequestBody(attributes))
 
 	return
 }
 
-func DeletePlan(serviceTypeID, planID string) (err error) {
+func DeletePlan(ctx context.Context, serviceTypeID, planID string) (err error) {
 	url := fmt.Sprintf("%s/%s/%s", baseURL, plansPath(serviceTypeID), planID)
 
-	_, err = NewRequest[struct{}]("DELETE", url, nil)
+	_, err = NewRequest[struct{}](ctx, "DELETE", url, nil)
 
 	return
 }
