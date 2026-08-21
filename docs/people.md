@@ -2,6 +2,21 @@
 
 Wraps the [People v2 API](https://api.planningcenteronline.com/docs/apps/people): people records and three of their sub-resources (addresses, emails, phone numbers). All paths are rooted at `people/v2/people`.
 
+## Organization
+
+**[organization.go](../organization.go)**
+
+### `GetOrganization(ctx context.Context) (OrganizationResponse, error)`
+
+```go
+org, err := pco.GetOrganization(ctx)
+name := org.Data.Attributes.Name
+```
+
+No `id` parameter - PCO's People API is single-tenant per credential (a PAT or an access token is always scoped to exactly one organization), and the organization itself is the root of that API: `GET https://api.planningcenteronline.com/people/v2` returns it directly as `data`, unlike every other resource here, which is addressed by an `id` segment under `people/v2/...`. PCO's own docs list `Organization` as a People API vertex without spelling out its path; `people/v2/organization` 404s.
+
+`OrganizationAttributes` covers `Name`, `ChurchCenterSubdomain`, `TimeZone`, and `CountryCode` - the fields most callers actually need - not every attribute PCO's docs list (e.g. `Grades`, used by children's ministry check-in).
+
 ## People
 
 **[people.go](../people.go)**

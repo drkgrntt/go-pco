@@ -116,7 +116,7 @@ Create/update functions build their body with `pco.NewRequestBody(map[string]any
 
 | Module | Docs | Covers |
 |---|---|---|
-| People | [docs/people.md](docs/people.md) | People, Addresses, Emails, Phone Numbers |
+| People | [docs/people.md](docs/people.md) | Organization, People, Addresses, Emails, Phone Numbers |
 | Webhooks | [docs/webhooks.md](docs/webhooks.md) | Subscriptions, Available Events, Event deliveries, receiving & verifying incoming webhooks |
 | Services | [docs/services.md](docs/services.md) | Service Types, Plans, Items, Songs, Teams, Team Positions, Needed Positions, Team Members (PlanPerson), Person Team Position Assignments, Blockouts |
 
@@ -143,7 +143,7 @@ Look up the resource's attributes/relationships/actions at `https://api.planning
 
 ## Status & roadmap
 
-Implemented: People (People, Addresses, Emails, Phone Numbers), Webhooks (full), Services (Service Types, Plans, Items, Songs - create/read; Teams, Team Positions - read-only; Needed Positions - read-only, see below; Team Members/PlanPerson - create/read/delete; Person Team Position Assignments - full CRUD; Blockouts - read-only by design).
+Implemented: People (Organization, People, Addresses, Emails, Phone Numbers), Webhooks (full), Services (Service Types, Plans, Items, Songs - create/read; Teams, Team Positions - read-only; Needed Positions - read-only, see below; Team Members/PlanPerson - create/read/delete; Person Team Position Assignments - full CRUD; Blockouts - read-only by design).
 
 Not yet implemented, in roughly the order they'd likely matter for a Services-focused integration:
 - Services: Needed Position create/update/delete (every request shape tried 500s live on a real account regardless of body - see [docs/services.md](docs/services.md#needed-positions)), Song update/delete, Arrangements, Item Notes, Schedules, Attachments, and the ~45 remaining resources listed under `/docs/apps/services`.
