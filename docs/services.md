@@ -1,8 +1,8 @@
 # Services
 
-Wraps a starting subset of the [Services v2 API](https://api.planningcenteronline.com/docs/apps/services): the order-of-service side (Service Types, Plans, Items, Songs) and the people-scheduling side (Teams, Team Positions, Needed Positions, Team Members / PlanPerson, Person Team Position Assignments, Blockouts).
+Wraps a starting subset of the [Services v2 API](https://api.planningcenteronline.com/docs/apps/services): the order-of-service side (Service Types, Plans, Items, Songs, Arrangements, Keys) and the people-scheduling side (Teams, Team Positions, Needed Positions, Team Members / PlanPerson, Person Team Position Assignments, Blockouts).
 
-The Services API has ~65 resources total — the ones below plus Arrangements, Attachments, Schedules, and more remain unimplemented. See [Extending](../README.md#extending) in the root README for how to add another one; `https://api.planningcenteronline.com/docs/apps/services` lists every resource and its documentation path.
+The Services API has ~65 resources total — the ones below plus Attachments, Schedules, and more remain unimplemented. See [Extending](../README.md#extending) in the root README for how to add another one; `https://api.planningcenteronline.com/docs/apps/services` lists every resource and its documentation path.
 
 ## Service Types
 
@@ -75,6 +75,7 @@ A Song is an organization-wide song in the library (not scoped to a service type
 | `GetSongs(ctx context.Context, params *SongsParams) (SongListResponse, error)` | `params` may be `nil`. |
 | `GetSong(ctx context.Context, id string) (SongResponse, error)` | |
 | `CreateSong(ctx context.Context, params *CreateSongParams) (SongResponse, error)` | See below. |
+| `DeleteSong(ctx context.Context, id string) error` | |
 
 ```go
 type SongsParams struct {
@@ -103,6 +104,54 @@ song, err := pco.CreateSong(ctx, &pco.CreateSongParams{Title: "Great Are You Lor
 `CreateSongParams` has no `Notes` field on purpose - PCO rejects `notes` on create outright (`"notes cannot be assigned"`, confirmed live); a song's notes are their own sub-resource, not a plain Song attribute. Every other field is only sent when set (`Hidden` only when `true`), so a params struct with just `Title` set sends just `title`.
 
 `SongAttributes` covers `Title`, `Author`, `CCLINumber`, `Copyright`, `Admin`, `Themes`, `Notes`, `Hidden`, `LastScheduledAt`, `CreatedAt`/`UpdatedAt`. Unlike other resources, `SongData` has no `Relationships` field - PCO's Song vertex doesn't return a `relationships` object; related data (arrangements, attachments, tags) is exposed as action links this SDK doesn't wrap yet.
+
+## Arrangements & Keys
+
+**[arrangements.go](../arrangements.go), [keys.go](../keys.go)**
+
+An Arrangement is a named version of a Song (chord chart, BPM, meter, lyrics) - every function takes the parent `songID`. A Key is a named starting/ending key nested under one Arrangement - every Key function additionally takes `arrangementID`.
+
+| Function | Notes |
+|---|---|
+| `GetArrangements(ctx context.Context, songID string, params *ArrangementsParams) (ArrangementListResponse, error)` | `params` may be `nil`. |
+| `GetArrangement(ctx context.Context, songID, id string) (ArrangementResponse, error)` | |
+| `CreateArrangement(ctx context.Context, songID string, params *CreateArrangementParams) (ArrangementResponse, error)` | See below. |
+| `GetKeys(ctx context.Context, songID, arrangementID string, params *KeysParams) (KeyListResponse, error)` | `params` may be `nil`. |
+| `GetKey(ctx context.Context, songID, arrangementID, id string) (KeyResponse, error)` | |
+| `CreateKey(ctx context.Context, songID, arrangementID string, params *CreateKeyParams) (KeyResponse, error)` | See below. |
+
+```go
+type CreateArrangementParams struct {
+	Name          string
+	BPM           float64
+	Meter         string
+	ChordChartKey string
+	Notes         string
+	Length        int
+}
+
+type CreateKeyParams struct {
+	Name        string
+	StartingKey string
+	EndingKey   string
+}
+```
+
+```go
+arrangement, err := pco.CreateArrangement(ctx, song.ID, &pco.CreateArrangementParams{
+	Name:          "Default",
+	ChordChartKey: "G",
+	BPM:           72,
+})
+
+key, err := pco.CreateKey(ctx, song.ID, arrangement.Data.ID, &pco.CreateKeyParams{StartingKey: "G"})
+```
+
+`CreateArrangementParams`/`CreateKeyParams` only cover the fields worth setting when creating one from scratch, not PCO's full creatable set (chord chart formatting/print options are left at PCO's own defaults). Every field is only sent when set, same convention as `CreateSongParams`.
+
+`KeyAttributes` has no `Capo` field - PCO's API doesn't expose one. The capo number shown in PCO's own UI is computed there from a starting key relative to an instrument's preferred key, not stored as data on this resource; there's nothing here to read or write for it.
+
+`KeyAttributes.AlternateKeys` is `[]AlternateKey` (`Name`/`Pitch`), confirmed live against a real response - PCO's own attribute table documents this field as a bare `string`, which is wrong. `CreateKeyParams` has no `AlternateKeys` field since its create/update wire shape isn't confirmed the same way.
 
 ## Items
 
@@ -156,7 +205,7 @@ item, err := pco.CreateItem(ctx, serviceTypeID, planID, &pco.CreateItemParams{
 })
 ```
 
-`ItemRelationships` covers `Plan`, `Song`, `Arrangement`, `Key` — decoding those requires the not-yet-implemented Arrangement/Key resources; for now you'll get back a bare `General{Type, ID}` for those two (`Song` decodes against the Songs resource above).
+`ItemRelationships` covers `Plan`, `Song`, `Arrangement`, `Key` - all four decode as a bare `General{Type, ID}` regardless (that's the JSON:API relationship shape everywhere in this SDK), but `Arrangement`/`Key` can now be resolved to their full attributes with `GetArrangement`/`GetKey` above (`Song` likewise resolves against the Songs resource above).
 
 `UpdateItemParams` deliberately has no `Sequence` field - PATCHing an item's sequence directly is rejected by PCO (`"sequence cannot be assigned"`, confirmed live). Reordering is its own bulk action:
 
