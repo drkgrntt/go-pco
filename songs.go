@@ -160,3 +160,11 @@ func CreateSong(ctx context.Context, params *CreateSongParams) (response SongRes
 
 	return
 }
+
+func DeleteSong(ctx context.Context, id string) (err error) {
+	url := fmt.Sprintf("%s/%s/%s", baseURL, songsPath, id)
+
+	_, err = NewRequest[struct{}](ctx, "DELETE", url, nil)
+
+	return
+}

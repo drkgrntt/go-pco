@@ -186,3 +186,19 @@ func TestCreateSongNilParams(t *testing.T) {
 		t.Fatal("expected an error for nil params")
 	}
 }
+
+func TestDeleteSong(t *testing.T) {
+	startTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		if want := "/" + songsPath + "/1"; r.URL.Path != want {
+			t.Errorf("expected path %s, got %s", want, r.URL.Path)
+		}
+		if r.Method != http.MethodDelete {
+			t.Errorf("expected DELETE, got %s", r.Method)
+		}
+		w.WriteHeader(http.StatusNoContent)
+	})
+
+	if err := DeleteSong(context.Background(), "1"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
