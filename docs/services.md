@@ -116,6 +116,7 @@ An Arrangement is a named version of a Song (chord chart, BPM, meter, lyrics) - 
 | `GetArrangements(ctx context.Context, songID string, params *ArrangementsParams) (ArrangementListResponse, error)` | `params` may be `nil`. |
 | `GetArrangement(ctx context.Context, songID, id string) (ArrangementResponse, error)` | |
 | `CreateArrangement(ctx context.Context, songID string, params *CreateArrangementParams) (ArrangementResponse, error)` | See below. |
+| `UpdateArrangement(ctx context.Context, songID, arrangementID string, params *UpdateArrangementParams) (ArrangementResponse, error)` | Same fields as `CreateArrangementParams` - see below. |
 | `GetKeys(ctx context.Context, songID, arrangementID string, params *KeysParams) (KeyListResponse, error)` | `params` may be `nil`. |
 | `GetKey(ctx context.Context, songID, arrangementID, id string) (KeyResponse, error)` | |
 | `CreateKey(ctx context.Context, songID, arrangementID string, params *CreateKeyParams) (KeyResponse, error)` | See below. |
@@ -148,6 +149,17 @@ key, err := pco.CreateKey(ctx, song.ID, arrangement.Data.ID, &pco.CreateKeyParam
 ```
 
 `CreateArrangementParams`/`CreateKeyParams` only cover the fields worth setting when creating one from scratch, not PCO's full creatable set (chord chart formatting/print options are left at PCO's own defaults). Every field is only sent when set, same convention as `CreateSongParams`.
+
+PCO auto-creates one "Default Arrangement" the moment a Song itself is created (confirmed live: `chord_chart_key`/`bpm`/`meter` all start empty/zero) - setting a real key/tempo on a freshly-created song means updating that one with `UpdateArrangement`, not calling `CreateArrangement` again (which would just leave two arrangements on the song):
+
+```go
+arrangements, err := pco.GetArrangements(ctx, song.ID, nil) // arrangements.Data[0] is the auto-created default
+
+arrangement, err := pco.UpdateArrangement(ctx, song.ID, arrangements.Data[0].ID, &pco.UpdateArrangementParams{
+	ChordChartKey: "G",
+	BPM:           72,
+})
+```
 
 `KeyAttributes` has no `Capo` field - PCO's API doesn't expose one. The capo number shown in PCO's own UI is computed there from a starting key relative to an instrument's preferred key, not stored as data on this resource; there's nothing here to read or write for it.
 
