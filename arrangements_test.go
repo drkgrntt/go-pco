@@ -94,3 +94,35 @@ func TestCreateArrangementNilParams(t *testing.T) {
 		t.Fatal("expected an error for nil params")
 	}
 }
+
+func TestUpdateArrangement(t *testing.T) {
+	startTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		if want := "/" + songsPath + "/song-1/arrangements/arr-1"; r.URL.Path != want {
+			t.Errorf("expected path %s, got %s", want, r.URL.Path)
+		}
+		if r.Method != http.MethodPatch {
+			t.Errorf("expected PATCH, got %s", r.Method)
+		}
+
+		attrs := attributes(t, decodeBody(t, r))
+		if len(attrs) != 1 || attrs["chord_chart_key"] != "G" {
+			t.Errorf("expected only chord_chart_key=G, got %+v", attrs)
+		}
+
+		writeJSON(t, w, http.StatusOK, `{"data":{"type":"Arrangement","id":"arr-1","attributes":{"chord_chart_key":"G"}}}`)
+	})
+
+	response, err := UpdateArrangement(context.Background(), "song-1", "arr-1", &UpdateArrangementParams{ChordChartKey: "G"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if response.Data.Attributes.ChordChartKey != "G" {
+		t.Errorf("expected chord_chart_key G, got %q", response.Data.Attributes.ChordChartKey)
+	}
+}
+
+func TestUpdateArrangementNilParams(t *testing.T) {
+	if _, err := UpdateArrangement(context.Background(), "song-1", "arr-1", nil); err == nil {
+		t.Fatal("expected an error for nil params")
+	}
+}

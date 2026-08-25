@@ -152,3 +152,49 @@ func CreateArrangement(ctx context.Context, songID string, params *CreateArrange
 
 	return
 }
+
+// UpdateArrangementParams mirrors CreateArrangementParams - useful because
+// PCO auto-creates one "Default Arrangement" the moment a Song itself is
+// created (confirmed live: chord_chart_key/bpm/meter all start empty/zero),
+// so setting a real key/tempo on a freshly-created song's arrangement is an
+// update to that one, not a second CreateArrangement call.
+type UpdateArrangementParams struct {
+	Name          string
+	BPM           float64
+	Meter         string
+	ChordChartKey string
+	Notes         string
+	Length        int
+}
+
+func UpdateArrangement(ctx context.Context, songID, arrangementID string, params *UpdateArrangementParams) (response ArrangementResponse, err error) {
+	if params == nil {
+		return response, fmt.Errorf("params cannot be nil")
+	}
+
+	url := fmt.Sprintf("%s/%s/%s", baseURL, arrangementsPath(songID), arrangementID)
+
+	attributes := map[string]any{}
+	if params.Name != "" {
+		attributes["name"] = params.Name
+	}
+	if params.BPM != 0 {
+		attributes["bpm"] = params.BPM
+	}
+	if params.Meter != "" {
+		attributes["meter"] = params.Meter
+	}
+	if params.ChordChartKey != "" {
+		attributes["chord_chart_key"] = params.ChordChartKey
+	}
+	if params.Notes != "" {
+		attributes["notes"] = params.Notes
+	}
+	if params.Length != 0 {
+		attributes["length"] = params.Length
+	}
+
+	response, err = NewRequest[ArrangementResponse](ctx, "PATCH", url, NewRequestBody(attributes))
+
+	return
+}
