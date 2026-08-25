@@ -49,10 +49,30 @@ type ArrangementAttributes struct {
 	PrintMargin         string    `json:"print_margin"`
 	PrintOrientation    string    `json:"print_orientation"`
 	PrintPageSize       string    `json:"print_page_size"`
-	Sequence            []string  `json:"sequence"`
-	SequenceFull        []string  `json:"sequence_full"`
-	SequenceShort       []string  `json:"sequence_short"`
-	UpdatedAt           time.Time `json:"updated_at"`
+	// Sequence is the plain section-label list ("Intro", "Verse 1",
+	// "Chorus", ...) - SequenceShort is the same thing abbreviated and
+	// run-length-collapsed ("Intro×3", "V1", "C", ...).
+	Sequence []string `json:"sequence"`
+	// SequenceFull is not a list of strings, despite PCO's own attribute
+	// table saying "array" with no further detail (and despite Sequence/
+	// SequenceShort actually being string arrays) - confirmed live, it's
+	// one ArrangementSequenceStep per section, carrying that section's
+	// timing.
+	SequenceFull  []ArrangementSequenceStep `json:"sequence_full"`
+	SequenceShort []string                  `json:"sequence_short"`
+	UpdatedAt     time.Time                 `json:"updated_at"`
+}
+
+// ArrangementSequenceStep is one entry of ArrangementAttributes.SequenceFull
+// - confirmed live against a real response. T is a timestamp string in the
+// arrangement's own "mm:ss:ms"-ish format (e.g. "01:12:972"), left as a
+// string rather than parsed, since PCO doesn't document its exact unit
+// breakdown.
+type ArrangementSequenceStep struct {
+	Label  string `json:"label"`
+	Number string `json:"number"`
+	T      string `json:"t"`
+	SID    int    `json:"sid"`
 }
 
 type ArrangementData struct {
