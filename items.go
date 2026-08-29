@@ -175,21 +175,29 @@ func CreateItem(ctx context.Context, serviceTypeID, planID string, params *Creat
 	return
 }
 
-// UpdateItemParams is a partial update - only set fields are sent, so
-// updating (say) just Length leaves Title/Description/etc as they already
-// are in PCO instead of clobbering them back to empty. Length is a pointer
-// because 0 is a legitimate value for it, so a zero value can't double as
-// "leave this alone" the way an empty string does for the string fields.
+// UpdateItemParams is a partial update - only set (non-nil) fields are
+// sent, so updating (say) just Length leaves Title/Description/etc as they
+// already are in PCO instead of clobbering them back to empty. Every field
+// is a pointer, not a plain string/int, for the same reason Length always
+// was: a zero value (0, "") is legitimate data (an empty Description, a
+// cleared ArrangementID), so it can't also double as "leave this alone" -
+// a plain string field would make it impossible to ever explicitly clear
+// one back to empty via update.
 //
 // There's deliberately no Sequence field here - PATCHing an item's sequence
 // directly is rejected by PCO ("sequence cannot be assigned", confirmed
 // against the live API). Reordering existing items is done via SortItems
 // instead, which PCO exposes as a dedicated bulk-sort action.
 type UpdateItemParams struct {
-	Title           string
-	Description     string
-	ServicePosition string
+	Title           *string
+	Description     *string
+	ServicePosition *string
 	Length          *int
+	// ArrangementID/KeyID link (or, set to a pointer to "", unlink) the
+	// item's arrangement/key relationships - confirmed live: PATCHing
+	// these actually works, unlike Sequence above.
+	ArrangementID *string
+	KeyID         *string
 }
 
 func UpdateItem(ctx context.Context, serviceTypeID, planID, itemID string, params *UpdateItemParams) (response ItemResponse, err error) {
@@ -200,20 +208,39 @@ func UpdateItem(ctx context.Context, serviceTypeID, planID, itemID string, param
 	url := fmt.Sprintf("%s/%s/%s", baseURL, itemsPath(serviceTypeID, planID), itemID)
 
 	attributes := map[string]any{}
-	if params.Title != "" {
-		attributes["title"] = params.Title
+	if params.Title != nil {
+		attributes["title"] = *params.Title
 	}
-	if params.Description != "" {
-		attributes["description"] = params.Description
+	if params.Description != nil {
+		attributes["description"] = *params.Description
 	}
-	if params.ServicePosition != "" {
-		attributes["service_position"] = params.ServicePosition
+	if params.ServicePosition != nil {
+		attributes["service_position"] = *params.ServicePosition
 	}
 	if params.Length != nil {
 		attributes["length"] = *params.Length
 	}
 
-	response, err = NewRequest[ItemResponse](ctx, "PATCH", url, NewRequestBody(attributes))
+	relationships := map[string]any{}
+	if params.ArrangementID != nil {
+		relationships["arrangement"] = map[string]any{
+			"data": map[string]any{"type": "Arrangement", "id": *params.ArrangementID},
+		}
+	}
+	if params.KeyID != nil {
+		relationships["key"] = map[string]any{
+			"data": map[string]any{"type": "Key", "id": *params.KeyID},
+		}
+	}
+
+	var body RequestBody
+	if len(relationships) > 0 {
+		body = NewRequestBodyWithRelationships(attributes, relationships)
+	} else {
+		body = NewRequestBody(attributes)
+	}
+
+	response, err = NewRequest[ItemResponse](ctx, "PATCH", url, body)
 
 	return
 }

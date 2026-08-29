@@ -235,7 +235,8 @@ func TestUpdateItem(t *testing.T) {
 		writeJSON(t, w, http.StatusOK, `{"data":{"type":"Item","id":"i-1","attributes":{"title":"Opening Song"}}}`)
 	})
 
-	response, err := UpdateItem(context.Background(), "st-1", "p-1", "i-1", &UpdateItemParams{Title: "Opening Song"})
+	title := "Opening Song"
+	response, err := UpdateItem(context.Background(), "st-1", "p-1", "i-1", &UpdateItemParams{Title: &title})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -263,6 +264,47 @@ func TestUpdateItemPartial(t *testing.T) {
 
 	length := 0
 	if _, err := UpdateItem(context.Background(), "st-1", "p-1", "i-1", &UpdateItemParams{Length: &length}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+// TestUpdateItemArrangementAndKey confirms UpdateItem can (re-)link an
+// already-existing item's arrangement/key, not just set them at creation -
+// confirmed live against the real API: PATCHing these actually works,
+// unlike Sequence (see UpdateItemParams' own doc comment).
+func TestUpdateItemArrangementAndKey(t *testing.T) {
+	startTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPatch {
+			t.Errorf("expected PATCH, got %s", r.Method)
+		}
+		body := decodeBody(t, r)
+		rels := relationships(t, body)
+
+		arrangement, ok := rels["arrangement"].(map[string]any)
+		if !ok {
+			t.Fatalf("expected relationships.arrangement object, got %v", rels)
+		}
+		if data, ok := arrangement["data"].(map[string]any); !ok || data["id"] != "arr-1" {
+			t.Errorf("expected relationships.arrangement.data.id arr-1, got %v", arrangement)
+		}
+
+		key, ok := rels["key"].(map[string]any)
+		if !ok {
+			t.Fatalf("expected relationships.key object, got %v", rels)
+		}
+		if data, ok := key["data"].(map[string]any); !ok || data["type"] != "Key" || data["id"] != "key-1" {
+			t.Errorf("expected relationships.key.data {type: Key, id: key-1}, got %v", key)
+		}
+
+		writeJSON(t, w, http.StatusOK, `{"data":{"type":"Item","id":"i-1"}}`)
+	})
+
+	arrangementID, keyID := "arr-1", "key-1"
+	_, err := UpdateItem(context.Background(), "st-1", "p-1", "i-1", &UpdateItemParams{
+		ArrangementID: &arrangementID,
+		KeyID:         &keyID,
+	})
+	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
