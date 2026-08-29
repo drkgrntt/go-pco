@@ -113,6 +113,14 @@ type CreateItemParams struct {
 	// Item vertex) - the same relationship GetItems/GetItem decode into
 	// ItemRelationships.Song. Leave empty for an item with no linked song.
 	SongID string
+	// ArrangementID links the item to one of that song's Arrangements
+	// (relationships.arrangement) - confirmed live: an item created with
+	// just SongID gets no arrangement relationship at all (nil), unlike a
+	// song added through Planning Center's own UI, so its chord chart/
+	// lyrics/structure don't show up anywhere on the plan without this.
+	// Leave empty to omit the relationship, same as before this field
+	// existed.
+	ArrangementID string
 }
 
 func CreateItem(ctx context.Context, serviceTypeID, planID string, params *CreateItemParams) (response ItemResponse, err error) {
@@ -131,13 +139,21 @@ func CreateItem(ctx context.Context, serviceTypeID, planID string, params *Creat
 		"sequence":         params.Sequence,
 	}
 
-	var body RequestBody
+	relationships := map[string]any{}
 	if params.SongID != "" {
-		body = NewRequestBodyWithRelationships(attributes, map[string]any{
-			"song": map[string]any{
-				"data": map[string]any{"type": "Song", "id": params.SongID},
-			},
-		})
+		relationships["song"] = map[string]any{
+			"data": map[string]any{"type": "Song", "id": params.SongID},
+		}
+	}
+	if params.ArrangementID != "" {
+		relationships["arrangement"] = map[string]any{
+			"data": map[string]any{"type": "Arrangement", "id": params.ArrangementID},
+		}
+	}
+
+	var body RequestBody
+	if len(relationships) > 0 {
+		body = NewRequestBodyWithRelationships(attributes, relationships)
 	} else {
 		body = NewRequestBody(attributes)
 	}

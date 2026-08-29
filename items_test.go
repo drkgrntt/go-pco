@@ -103,6 +103,80 @@ func TestCreateItemWithSong(t *testing.T) {
 	}
 }
 
+// TestCreateItemWithSongAndArrangement confirms both relationships can be
+// set together on one create - required for an item to actually show its
+// chord chart/lyrics/structure in Planning Center, not just be linked to
+// the bare song (confirmed live against the real API: a song-only item
+// gets no arrangement relationship at all).
+func TestCreateItemWithSongAndArrangement(t *testing.T) {
+	startTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		body := decodeBody(t, r)
+		rels := relationships(t, body)
+
+		song, ok := rels["song"].(map[string]any)
+		if !ok {
+			t.Fatalf("expected relationships.song object, got %v", rels)
+		}
+		songData, ok := song["data"].(map[string]any)
+		if !ok || songData["type"] != "Song" || songData["id"] != "song-1" {
+			t.Errorf("expected relationships.song.data {type: Song, id: song-1}, got %v", song)
+		}
+
+		arrangement, ok := rels["arrangement"].(map[string]any)
+		if !ok {
+			t.Fatalf("expected relationships.arrangement object, got %v", rels)
+		}
+		arrangementData, ok := arrangement["data"].(map[string]any)
+		if !ok || arrangementData["type"] != "Arrangement" || arrangementData["id"] != "arr-1" {
+			t.Errorf("expected relationships.arrangement.data {type: Arrangement, id: arr-1}, got %v", arrangement)
+		}
+
+		writeJSON(t, w, http.StatusCreated, `{"data":{"type":"Item","id":"i-1","attributes":{"title":"Opening Song"}}}`)
+	})
+
+	_, err := CreateItem(context.Background(), "st-1", "p-1", &CreateItemParams{
+		Title:         "Opening Song",
+		ItemType:      ItemTypeSong,
+		SongID:        "song-1",
+		ArrangementID: "arr-1",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+// TestCreateItemWithArrangementOnly confirms ArrangementID doesn't require
+// SongID to be set too - not a realistic use, but the relationships map is
+// built independently for each, so nothing should assume they're paired.
+func TestCreateItemWithArrangementOnly(t *testing.T) {
+	startTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		body := decodeBody(t, r)
+		rels := relationships(t, body)
+
+		if _, ok := rels["song"]; ok {
+			t.Errorf("expected no relationships.song, got %v", rels)
+		}
+		arrangement, ok := rels["arrangement"].(map[string]any)
+		if !ok {
+			t.Fatalf("expected relationships.arrangement object, got %v", rels)
+		}
+		if data, ok := arrangement["data"].(map[string]any); !ok || data["id"] != "arr-1" {
+			t.Errorf("expected relationships.arrangement.data.id arr-1, got %v", arrangement)
+		}
+
+		writeJSON(t, w, http.StatusCreated, `{"data":{"type":"Item","id":"i-1","attributes":{"title":"Opening Song"}}}`)
+	})
+
+	_, err := CreateItem(context.Background(), "st-1", "p-1", &CreateItemParams{
+		Title:         "Opening Song",
+		ItemType:      ItemTypeSong,
+		ArrangementID: "arr-1",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
 func TestCreateItemNilParams(t *testing.T) {
 	if _, err := CreateItem(context.Background(), "st-1", "p-1", nil); err == nil {
 		t.Fatal("expected an error for nil params")
