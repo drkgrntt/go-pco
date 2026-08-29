@@ -100,6 +100,64 @@ func TestCreateTeamMemberNilParams(t *testing.T) {
 // person-scoped delete 404s for at least one real, older plan on a live
 // account, while the plan-scoped path deletes reliably regardless of the
 // plan's age).
+func TestCreateTeamMemberWithNotes(t *testing.T) {
+	startTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		attrs := attributes(t, decodeBody(t, r))
+		if attrs["notes"] != "needs the tenor mic" {
+			t.Errorf("expected notes %q, got %v", "needs the tenor mic", attrs["notes"])
+		}
+		writeJSON(t, w, http.StatusCreated, `{"data":{"type":"PlanPerson","id":"1"}}`)
+	})
+
+	_, err := CreateTeamMember(context.Background(), "1", "2", &CreateTeamMemberParams{
+		PersonID: "5",
+		TeamID:   "7",
+		Notes:    "needs the tenor mic",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestUpdateTeamMember(t *testing.T) {
+	startTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPatch {
+			t.Errorf("expected PATCH, got %s", r.Method)
+		}
+		if want := "/" + teamMembersPath("1", "2") + "/9"; r.URL.Path != want {
+			t.Errorf("expected path %s, got %s", want, r.URL.Path)
+		}
+
+		attrs := attributes(t, decodeBody(t, r))
+		if attrs["notes"] != "swapped to guitar" {
+			t.Errorf("expected notes %q, got %v", "swapped to guitar", attrs["notes"])
+		}
+		// Only Notes was set on params - Status/DeclineReason/
+		// TeamPositionName should be omitted entirely, not sent as "".
+		if _, ok := attrs["status"]; ok {
+			t.Errorf("expected status to be omitted, got %v", attrs["status"])
+		}
+
+		writeJSON(t, w, http.StatusOK, `{"data":{"type":"PlanPerson","id":"9","attributes":{"notes":"swapped to guitar"}}}`)
+	})
+
+	response, err := UpdateTeamMember(context.Background(), "1", "2", "9", &UpdateTeamMemberParams{
+		Notes: "swapped to guitar",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if response.Data.Attributes.Notes != "swapped to guitar" {
+		t.Errorf("expected notes %q, got %q", "swapped to guitar", response.Data.Attributes.Notes)
+	}
+}
+
+func TestUpdateTeamMemberNilParams(t *testing.T) {
+	if _, err := UpdateTeamMember(context.Background(), "1", "2", "9", nil); err == nil {
+		t.Fatal("expected an error for nil params")
+	}
+}
+
 func TestDeleteTeamMemberUsesPlanScopedPath(t *testing.T) {
 	startTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodDelete {

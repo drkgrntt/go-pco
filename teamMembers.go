@@ -108,13 +108,21 @@ type CreateTeamMemberParams struct {
 	// assignment this app creates hasn't actually been confirmed by anyone
 	// yet, so that's the honest default rather than guessing Confirmed.
 	Status string
+	// Notes is confirmed both create- and update-assignable against PCO's
+	// own documentation API (GET .../documentation/2018-11-01/vertices/
+	// plan_person, its permissions.create_assignable/update_assignable
+	// lists both include "notes") and against the live API directly (a
+	// created assignment's notes came back exactly as sent) - unlike
+	// Item.Sequence, which is documented as assignable but rejected live,
+	// this one actually works both ways.
+	Notes string
 }
 
 // CreateTeamMember assigns a person to a position on a plan - the
 // scheduling-side counterpart to CreateItem for songs. Confirmed against
 // PCO's documented "Assignable on Create" fields for PlanPerson
-// (person_id/team_id/status/team_position_name via relationships+attributes
-// on the plan-scoped team_members path).
+// (person_id/team_id/status/team_position_name/notes via
+// relationships+attributes on the plan-scoped team_members path).
 func CreateTeamMember(ctx context.Context, serviceTypeID, planID string, params *CreateTeamMemberParams) (response PlanPersonResponse, err error) {
 	if params == nil {
 		return response, fmt.Errorf("params cannot be nil")
@@ -130,6 +138,7 @@ func CreateTeamMember(ctx context.Context, serviceTypeID, planID string, params 
 	attributes := map[string]any{
 		"status":             status,
 		"team_position_name": params.TeamPositionName,
+		"notes":              params.Notes,
 	}
 	relationships := map[string]any{
 		"team": map[string]any{
@@ -141,6 +150,53 @@ func CreateTeamMember(ctx context.Context, serviceTypeID, planID string, params 
 	}
 
 	response, err = NewRequest[PlanPersonResponse](ctx, "POST", url, NewRequestBodyWithRelationships(attributes, relationships))
+
+	return
+}
+
+// UpdateTeamMemberParams is a partial update - only set fields are sent,
+// mirroring UpdateItemParams. Deliberately doesn't cover every field PCO's
+// update_assignable list allows (person_id/team_id are in that list too,
+// meaning PCO would let you re-point an existing assignment at a different
+// person/team entirely) - re-assigning who's filling a position is better
+// modeled as delete-and-recreate, matching how the rest of this SDK treats
+// person/song relationships as fixed at creation, not something to sneak
+// into a "partial update" call.
+type UpdateTeamMemberParams struct {
+	Status           string
+	DeclineReason    string
+	Notes            string
+	TeamPositionName string
+}
+
+// UpdateTeamMember patches an existing plan assignment - confirmed live
+// against the real API (a PATCH with a new notes value came back with that
+// exact value on a subsequent GET), addressed through the same plan-scoped
+// path CreateTeamMember/DeleteTeamMember already use (see teamMembersPath's
+// doc comment for why this SDK avoids the person-scoped path PCO's docs
+// otherwise point update/delete at).
+func UpdateTeamMember(ctx context.Context, serviceTypeID, planID, planPersonID string, params *UpdateTeamMemberParams) (response PlanPersonResponse, err error) {
+	if params == nil {
+		return response, fmt.Errorf("params cannot be nil")
+	}
+
+	url := fmt.Sprintf("%s/%s/%s", baseURL, teamMembersPath(serviceTypeID, planID), planPersonID)
+
+	attributes := map[string]any{}
+	if params.Status != "" {
+		attributes["status"] = params.Status
+	}
+	if params.DeclineReason != "" {
+		attributes["decline_reason"] = params.DeclineReason
+	}
+	if params.Notes != "" {
+		attributes["notes"] = params.Notes
+	}
+	if params.TeamPositionName != "" {
+		attributes["team_position_name"] = params.TeamPositionName
+	}
+
+	response, err = NewRequest[PlanPersonResponse](ctx, "PATCH", url, NewRequestBody(attributes))
 
 	return
 }
