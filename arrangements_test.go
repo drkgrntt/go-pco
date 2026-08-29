@@ -126,3 +126,27 @@ func TestUpdateArrangementNilParams(t *testing.T) {
 		t.Fatal("expected an error for nil params")
 	}
 }
+
+// TestUpdateArrangementClearsNotes - Notes is a pointer specifically so a
+// caller can clear it to empty (see UpdateArrangementParams' own doc
+// comment) - a plain string couldn't distinguish "leave notes alone" from
+// "set notes to empty" here, same reasoning as UpdateItemParams.
+func TestUpdateArrangementClearsNotes(t *testing.T) {
+	startTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		attrs := attributes(t, decodeBody(t, r))
+		if len(attrs) != 1 || attrs["notes"] != "" {
+			t.Errorf("expected only notes=\"\", got %+v", attrs)
+		}
+
+		writeJSON(t, w, http.StatusOK, `{"data":{"type":"Arrangement","id":"arr-1","attributes":{"notes":""}}}`)
+	})
+
+	empty := ""
+	response, err := UpdateArrangement(context.Background(), "song-1", "arr-1", &UpdateArrangementParams{Notes: &empty})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if response.Data.Attributes.Notes != "" {
+		t.Errorf("expected empty notes, got %q", response.Data.Attributes.Notes)
+	}
+}

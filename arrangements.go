@@ -183,8 +183,13 @@ type UpdateArrangementParams struct {
 	BPM           float64
 	Meter         string
 	ChordChartKey string
-	Notes         string
-	Length        int
+	// Notes is a pointer, unlike every other field here - same reasoning
+	// as UpdateItemParams (items.go): a plain string can't tell "leave
+	// notes alone" apart from "clear notes to empty," since both would
+	// serialize as the zero value. This is the one field of this set an
+	// editable notes UI actually needs to be able to clear.
+	Notes  *string
+	Length int
 }
 
 func UpdateArrangement(ctx context.Context, songID, arrangementID string, params *UpdateArrangementParams) (response ArrangementResponse, err error) {
@@ -207,8 +212,8 @@ func UpdateArrangement(ctx context.Context, songID, arrangementID string, params
 	if params.ChordChartKey != "" {
 		attributes["chord_chart_key"] = params.ChordChartKey
 	}
-	if params.Notes != "" {
-		attributes["notes"] = params.Notes
+	if params.Notes != nil {
+		attributes["notes"] = *params.Notes
 	}
 	if params.Length != 0 {
 		attributes["length"] = params.Length
