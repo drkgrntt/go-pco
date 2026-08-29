@@ -177,6 +177,46 @@ func TestCreateItemWithArrangementOnly(t *testing.T) {
 	}
 }
 
+// TestCreateItemWithArrangementAndKey confirms KeyID is a genuinely
+// separate relationship from ArrangementID, not implied by it - confirmed
+// live: an item with only ArrangementID set still comes back with an
+// empty KeyName and no key relationship at all.
+func TestCreateItemWithArrangementAndKey(t *testing.T) {
+	startTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		body := decodeBody(t, r)
+		rels := relationships(t, body)
+
+		arrangement, ok := rels["arrangement"].(map[string]any)
+		if !ok {
+			t.Fatalf("expected relationships.arrangement object, got %v", rels)
+		}
+		if data, ok := arrangement["data"].(map[string]any); !ok || data["id"] != "arr-1" {
+			t.Errorf("expected relationships.arrangement.data.id arr-1, got %v", arrangement)
+		}
+
+		key, ok := rels["key"].(map[string]any)
+		if !ok {
+			t.Fatalf("expected relationships.key object, got %v", rels)
+		}
+		data, ok := key["data"].(map[string]any)
+		if !ok || data["type"] != "Key" || data["id"] != "key-1" {
+			t.Errorf("expected relationships.key.data {type: Key, id: key-1}, got %v", key)
+		}
+
+		writeJSON(t, w, http.StatusCreated, `{"data":{"type":"Item","id":"i-1"}}`)
+	})
+
+	_, err := CreateItem(context.Background(), "st-1", "p-1", &CreateItemParams{
+		Title:         "Opening Song",
+		ItemType:      ItemTypeSong,
+		ArrangementID: "arr-1",
+		KeyID:         "key-1",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
 func TestCreateItemNilParams(t *testing.T) {
 	if _, err := CreateItem(context.Background(), "st-1", "p-1", nil); err == nil {
 		t.Fatal("expected an error for nil params")

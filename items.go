@@ -121,6 +121,13 @@ type CreateItemParams struct {
 	// Leave empty to omit the relationship, same as before this field
 	// existed.
 	ArrangementID string
+	// KeyID links the item to one of that arrangement's Key sub-resources
+	// (relationships.key) - confirmed live, and confirmed as a genuinely
+	// separate relationship from ArrangementID: an item with only
+	// ArrangementID set still comes back with KeyName empty and no key
+	// relationship at all. Setting KeyID is what actually populates the
+	// item's shown KeyName.
+	KeyID string
 }
 
 func CreateItem(ctx context.Context, serviceTypeID, planID string, params *CreateItemParams) (response ItemResponse, err error) {
@@ -148,6 +155,11 @@ func CreateItem(ctx context.Context, serviceTypeID, planID string, params *Creat
 	if params.ArrangementID != "" {
 		relationships["arrangement"] = map[string]any{
 			"data": map[string]any{"type": "Arrangement", "id": params.ArrangementID},
+		}
+	}
+	if params.KeyID != "" {
+		relationships["key"] = map[string]any{
+			"data": map[string]any{"type": "Key", "id": params.KeyID},
 		}
 	}
 
