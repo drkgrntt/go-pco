@@ -46,6 +46,29 @@ func TestGetPeopleBuildsWhereFilters(t *testing.T) {
 	}
 }
 
+func TestGetPeopleBuildsIDsFilter(t *testing.T) {
+	startTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		if got := q.Get("where[id]"); got != "1,2,3" {
+			t.Errorf("expected where[id]=1,2,3, got %q", got)
+		}
+
+		writeJSON(t, w, http.StatusOK, `{"data":[
+			{"type":"Person","id":"1","attributes":{"first_name":"Ada"}},
+			{"type":"Person","id":"2","attributes":{"first_name":"Grace"}},
+			{"type":"Person","id":"3","attributes":{"first_name":"Katherine"}}
+		]}`)
+	})
+
+	response, err := GetPeople(context.Background(), &PeopleParams{IDs: []string{"1", "2", "3"}})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(response.Data) != 3 {
+		t.Errorf("expected 3 people, got %d", len(response.Data))
+	}
+}
+
 func TestGetPeopleBuildsIncludeParam(t *testing.T) {
 	startTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query()
