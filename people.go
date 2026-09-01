@@ -3,6 +3,7 @@ package pco
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -108,6 +109,14 @@ type PeopleParams struct {
 	// filter - so it also doubles as a general "search by name" query.
 	Email             string
 	SearchPhoneNumber string
+	// IDs filters to exactly these person ids in one call, sent as PCO's
+	// `where[id]=1,2,3` (comma-joined) - confirmed live against the People
+	// v2 API, whose `can_query_by` includes "id". Lets a caller resolve a
+	// known batch of ids without one GetPerson round trip each. PCO's usual
+	// per-page cap still applies, so a large batch needs PerPage set (up to
+	// PCO's max) or chunking across multiple calls - this alone doesn't
+	// override pagination.
+	IDs []string
 	// Include adds related resources (e.g. "addresses", "emails",
 	// "phone_numbers", "primary_campus") to the response's "included" array.
 	// See https://developer.planning.center/docs/#/apps/people/2025-05-28/vertices/person
@@ -130,6 +139,7 @@ func GetPeople(ctx context.Context, params *PeopleParams) (response PersonListRe
 		Where("last_name", params.LastName).
 		Where("search_name_or_email", params.Email).
 		Where("search_phone_number", params.SearchPhoneNumber).
+		Where("id", strings.Join(params.IDs, ",")).
 		Include(params.Include...).
 		OrderBy(params.OrderBy).
 		PerPage(params.PerPage).

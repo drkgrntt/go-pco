@@ -29,6 +29,7 @@ type PeopleParams struct {
 	LastName          string
 	Email             string // matched against PCO's search_name_or_email filter - fuzzy, name or email
 	SearchPhoneNumber string
+	IDs               []string // where[id]=1,2,3 - fetch a known batch of ids in one call
 	Include           []string // e.g. "addresses", "emails", "phone_numbers", "primary_campus"
 	OrderBy           string   // a can_order_by field, e.g. "last_name" or "-created_at"
 	PerPage           int
@@ -40,6 +41,17 @@ type PeopleParams struct {
 
 ```go
 people, err := pco.GetPeople(ctx, &pco.PeopleParams{LastName: "Lovelace", Include: []string{"emails"}})
+```
+
+`IDs` resolves a known set of person ids in one request instead of one
+`GetPerson` call each - confirmed live that People#index's `can_query_by`
+includes `id`, and it's a normal comma-joined `where[]` filter like any
+other. Still paginates like any other list call, so set `PerPage` to at
+least `len(IDs)` (up to PCO's per-page ceiling) or the response silently
+truncates:
+
+```go
+people, err := pco.GetPeople(ctx, &pco.PeopleParams{IDs: []string{"1", "2", "3"}, PerPage: 3})
 ```
 
 ### `GetPerson(ctx context.Context, id string) (PersonResponse, error)`
