@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"time"
 )
 
@@ -85,6 +86,15 @@ type SongsParams struct {
 	OrderBy string
 	PerPage int
 	Offset  int
+	// Hidden filters to only songs whose hidden attribute matches the given
+	// value, sent as PCO's `where[hidden]=true`/`false` - confirmed live
+	// against the Services v2 API: Songs#index's `can_query_by` includes
+	// "hidden", and where[hidden]=true vs. where[hidden]=false each return
+	// the correct, different meta.total_count for a real org's archived vs.
+	// active songs (not silently ignored). nil omits the filter entirely
+	// (both hidden and visible songs returned), matching GetSongs'
+	// pre-existing behavior.
+	Hidden *bool
 }
 
 func GetSongs(ctx context.Context, params *SongsParams) (response SongListResponse, err error) {
@@ -96,6 +106,9 @@ func GetSongs(ctx context.Context, params *SongsParams) (response SongListRespon
 		OrderBy(params.OrderBy).
 		PerPage(params.PerPage).
 		Offset(params.Offset)
+	if params.Hidden != nil {
+		q = q.Where("hidden", strconv.FormatBool(*params.Hidden))
+	}
 
 	url := fmt.Sprintf("%s/%s%s", baseURL, songsPath, q.Encode())
 

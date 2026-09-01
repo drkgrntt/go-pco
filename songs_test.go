@@ -52,6 +52,34 @@ func TestGetSongs(t *testing.T) {
 	}
 }
 
+func TestGetSongsHiddenFilter(t *testing.T) {
+	startTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		if q.Get("where[hidden]") != "false" {
+			t.Errorf("expected where[hidden]=false, got %q", q.Get("where[hidden]"))
+		}
+		writeJSON(t, w, http.StatusOK, `{"data":[]}`)
+	})
+
+	hidden := false
+	if _, err := GetSongs(context.Background(), &SongsParams{Hidden: &hidden}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestGetSongsNilHiddenOmitsFilter(t *testing.T) {
+	startTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		if _, ok := r.URL.Query()["where[hidden]"]; ok {
+			t.Errorf("expected no where[hidden] param for nil Hidden, got %q", r.URL.RawQuery)
+		}
+		writeJSON(t, w, http.StatusOK, `{"data":[]}`)
+	})
+
+	if _, err := GetSongs(context.Background(), &SongsParams{}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
 func TestGetSongsNilParams(t *testing.T) {
 	startTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.RawQuery != "" {
