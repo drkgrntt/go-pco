@@ -279,6 +279,41 @@ func TestNewRequestEmptyBodyNoError(t *testing.T) {
 	}
 }
 
+// TestSetBaseURLForTesting confirms the exported test seam actually
+// redirects requests to the given URL and that its restore func puts the
+// original baseURL back - this is what lets an importing package (which
+// can't reach the unexported baseURL var directly, unlike this package's
+// own startTestServer helper above) fake PCO with a local httptest.Server.
+func TestSetBaseURLForTesting(t *testing.T) {
+	original := baseURL
+
+	fake := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(t, w, http.StatusOK, `{"greeting":"hello"}`)
+	}))
+	defer fake.Close()
+
+	restore := SetBaseURLForTesting(fake.URL)
+	if baseURL != fake.URL {
+		t.Fatalf("expected baseURL to be swapped to %q, got %q", fake.URL, baseURL)
+	}
+
+	type response struct {
+		Greeting string `json:"greeting"`
+	}
+	got, err := NewRequest[response](context.Background(), http.MethodGet, baseURL+"/anything", nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got.Greeting != "hello" {
+		t.Errorf("expected greeting hello, got %q", got.Greeting)
+	}
+
+	restore()
+	if baseURL != original {
+		t.Fatalf("expected restore to put baseURL back to %q, got %q", original, baseURL)
+	}
+}
+
 func TestNewRequestErrorStatus(t *testing.T) {
 	startTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(t, w, http.StatusUnprocessableEntity, `{"errors":[{"status":"422","title":"Unprocessable Entity","detail":"name can't be blank"}]}`)

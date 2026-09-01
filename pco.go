@@ -17,6 +17,25 @@ import (
 // httptest.Server.
 var baseURL = "https://api.planningcenteronline.com"
 
+// SetBaseURLForTesting points every subsequent call in this package at url
+// instead of the real PCO API - e.g. a local httptest.Server standing in
+// for PCO, so an importing package's tests can exercise fetch/pagination/
+// concurrency/pacing behavior with no real network call or credentials
+// involved. Returns a restore func that puts the original base URL back;
+// call it via defer so a failure to restore doesn't leak into later tests.
+//
+// This package's own tests reach the unexported baseURL var directly (see
+// startTestServer in pco_test.go); this exported wrapper exists purely so
+// an importer - which can't see the unexported var - has the same seam.
+// Test-only: never call this from production code.
+func SetBaseURLForTesting(url string) (restore func()) {
+	original := baseURL
+	baseURL = url
+	return func() {
+		baseURL = original
+	}
+}
+
 // accessTokenKey is the context.Context key WithAccessToken/NewRequest use
 // to pass a per-request OAuth Bearer token - unexported so nothing outside
 // this package can collide with it or read it directly.
