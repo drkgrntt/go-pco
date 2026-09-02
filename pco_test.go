@@ -335,3 +335,41 @@ func TestNewRequestErrorStatus(t *testing.T) {
 		t.Errorf("expected parsed error detail, got %+v", reqErr.Errors)
 	}
 }
+
+func TestNewRequestErrorCarriesRetryAfter(t *testing.T) {
+	startTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Retry-After", "20")
+		writeJSON(t, w, http.StatusTooManyRequests, `{"errors":[{"status":"429","title":"Rate limit exceeded"}]}`)
+	})
+
+	_, err := NewRequest[struct{}](context.Background(), http.MethodGet, baseURL+"/thing", nil)
+	if err == nil {
+		t.Fatal("expected an error for a 429 response")
+	}
+
+	reqErr, ok := err.(*RequestError)
+	if !ok {
+		t.Fatalf("expected *RequestError, got %T", err)
+	}
+	if reqErr.StatusCode != http.StatusTooManyRequests {
+		t.Errorf("expected status 429, got %d", reqErr.StatusCode)
+	}
+	if reqErr.RetryAfter != "20" {
+		t.Errorf("expected RetryAfter %q, got %q", "20", reqErr.RetryAfter)
+	}
+}
+
+func TestNewRequestErrorRetryAfterEmptyWhenAbsent(t *testing.T) {
+	startTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(t, w, http.StatusUnprocessableEntity, `{"errors":[{"status":"422","title":"Unprocessable Entity"}]}`)
+	})
+
+	_, err := NewRequest[struct{}](context.Background(), http.MethodPost, baseURL+"/thing", map[string]string{})
+	reqErr, ok := err.(*RequestError)
+	if !ok {
+		t.Fatalf("expected *RequestError, got %T", err)
+	}
+	if reqErr.RetryAfter != "" {
+		t.Errorf("expected empty RetryAfter when header absent, got %q", reqErr.RetryAfter)
+	}
+}

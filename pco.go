@@ -11,11 +11,22 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // baseURL is a var (not a const) so tests can point it at a local
 // httptest.Server.
 var baseURL = "https://api.planningcenteronline.com"
+
+// requestTimeout bounds every call NewRequest makes. Without it, a hung PCO
+// response (rare, but the previous *http.Client{} had no Timeout at all)
+// hangs the caller's request indefinitely, since http.NewRequestWithContext
+// only enforces whatever deadline the caller's own context carries - which
+// most callers (an HTTP handler, a page render) don't set. Not currently
+// configurable: no caller has needed anything other than "generous enough
+// for a slow PCO response, short enough to fail a render rather than hang
+// it" - revisit only if a real use case needs a different value.
+const requestTimeout = 30 * time.Second
 
 // SetBaseURLForTesting points every subsequent call in this package at url
 // instead of the real PCO API - e.g. a local httptest.Server standing in
@@ -140,6 +151,15 @@ type APIError struct {
 type RequestError struct {
 	StatusCode int
 	Errors     []APIError
+	// RetryAfter is the response's Retry-After header, verbatim, when PCO
+	// sent one - normally only present on a 429 (rate limit exceeded), per
+	// https://api.planningcenteronline.com/docs/overview/rate-limiting.
+	// Empty when the header was absent. Left as the raw header string
+	// (PCO sends a delay-in-seconds value, never an HTTP-date) rather than
+	// parsed into a time.Duration, since a caller that doesn't need it
+	// shouldn't pay for parsing it, and one that does can call
+	// strconv.Atoi itself.
+	RetryAfter string
 }
 
 func (e *RequestError) Error() string {
@@ -259,7 +279,7 @@ func NewRequest[Response interface{}](
 		req.SetBasicAuth(os.Getenv("PCO_CLIENT_ID"), os.Getenv("PCO_SECRET"))
 	}
 
-	client := &http.Client{}
+	client := &http.Client{Timeout: requestTimeout}
 	resp, err := client.Do(req)
 	if err != nil {
 		return response, err
@@ -276,7 +296,11 @@ func NewRequest[Response interface{}](
 			Errors []APIError `json:"errors"`
 		}
 		_ = json.Unmarshal(responseBody, &errResp)
-		return response, &RequestError{StatusCode: resp.StatusCode, Errors: errResp.Errors}
+		return response, &RequestError{
+			StatusCode: resp.StatusCode,
+			Errors:     errResp.Errors,
+			RetryAfter: resp.Header.Get("Retry-After"),
+		}
 	}
 
 	if len(responseBody) > 0 {
