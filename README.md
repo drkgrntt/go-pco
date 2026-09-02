@@ -112,6 +112,60 @@ response, err := pco.NewRequest[pco.PersonListResponse](ctx, "GET", "https://api
 
 Create/update functions build their body with `pco.NewRequestBody(map[string]any{...})`, which wraps attributes in the `{"data":{"attributes":{...}}}` shape PCO's JSON:API expects. `any` values are used (not `string`) so booleans, numbers, and arrays serialize correctly. `pco.NewRequestBodyWithRelationships(attributes, relationships)` is the same, plus a `{"data":{"relationships":{...}}}` object, for creates/updates that link another resource (e.g. an Item linked to a Song) rather than just set plain attributes.
 
+### Request throttle (opt-in)
+
+PCO enforces a rate limit of 100 requests per 20 seconds, **per authenticated user token** (see [PCO's rate-limiting docs](https://api.planningcenteronline.com/docs/overview/rate-limiting)). go-pco itself never throttles requests unless you turn it on - by default it's a plain "make HTTP requests to PCO" library, and stays that way for any consumer who doesn't opt in.
+
+Opting in gets you two things at once: a global cap on sustained throughput per token, and a way to say some calls matter more than others when there's contention for that budget.
+
+**Opt in one of two ways** - an explicit call always wins if both are present:
+
+```go
+// In code, e.g. once at process startup:
+pco.ConfigureThrottle(pco.ThrottleConfig{
+	Enabled: true,
+	// RatePerWindow/Window/DefaultPriority/IdleEvictAfter are all optional -
+	// zero values fall back to package defaults (see below).
+})
+```
+
+```sh
+# Or via environment variable, no code change needed:
+export PCO_THROTTLE_ENABLED=true
+export PCO_THROTTLE_RATE_PER_20S=60     # optional, defaults to 60
+export PCO_THROTTLE_DEFAULT_PRIORITY=10 # optional, defaults to 10
+```
+
+The env vars are only consulted if `ConfigureThrottle` is never called (checked once, lazily, on first use) - a code-level `ConfigureThrottle` call always takes precedence.
+
+**What the defaults mean in practice**: once enabled, each access token (or, for PAT-authenticated calls with no per-user token, one shared bucket for the PAT itself) is limited to `RatePerWindow` requests per `Window`, refilled continuously rather than reset in hard steps. The shipped default is **60 requests per 20 seconds** - deliberately more conservative than PCO's raw 100/20s ceiling, chosen to match the same 60%-headroom figure already proven safe elsewhere rather than starting closer to the real limit and hoping it holds up; it's meant to be raised later with real production signal, not lowered after the fact. A call that never sets a priority is admitted at `DefaultPriority` (10).
+
+**Priority convention** - read this carefully, the direction is easy to get backwards: priority is numeric, and **lower numbers are admitted first**. A call tagged priority `1` is admitted before a call tagged priority `10`, which is admitted before a call tagged priority `20`. This is the same direction and the same default value (10) as WordPress's `add_action`/`add_filter` priority argument, deliberately - if you already know that convention, "priority 10, same as WordPress's default" tells you everything. Tag a context with `pco.WithPriority`:
+
+```go
+ctx := pco.WithPriority(context.Background(), 1) // admitted before the default (10)
+people, err := pco.GetPeople(ctx, &pco.PeopleParams{})
+```
+
+Never describe this as "higher priority" or "lower priority" wins - both phrases are genuinely ambiguous (does "higher priority" mean numerically higher, or more urgent?). Always state it as "admitted before/after," the way this section does.
+
+**Motivating example** - a background sync sharing an access token with interactive traffic:
+
+```go
+// Interactive, user-waiting request: leave it at the default, or tag it
+// explicitly with a low number so it's never stuck behind background work.
+people, err := pco.GetPeople(ctx, &pco.PeopleParams{})
+
+// Unattended background sync on the same token: tag it with a high
+// number so it never delays the interactive request above.
+syncCtx := pco.WithPriority(ctx, 20)
+songs, err := pco.GetSongs(syncCtx, &pco.SongsParams{})
+```
+
+**Deliberate tradeoff - no anti-starvation**: admission is strict priority order, with no aging or promotion of a long-waiting low-priority call. A background sync queued behind a steady stream of interactive traffic on the same token can wait a long time - that's the intended outcome for this SDK's actual use case (an unattended sync competing with user-waiting requests), not a bug to be fixed. Don't add fairness/aging logic without understanding this was a deliberate design choice.
+
+Other notes: idle per-token limiters (no activity for `IdleEvictAfter`, default 30 minutes) are dropped from the internal registry so a long-running process doesn't accumulate state for users who've stopped making requests. A context whose `Done()` fires while a call is queued returns that context's error promptly - it never waits for its turn to come up.
+
 ## Modules
 
 | Module | Docs | Covers |

@@ -245,7 +245,37 @@ func (q *QueryParams) Encode() string {
 	return "?" + q.values.Encode()
 }
 
+// NewRequest is the one place every resource function in this package
+// eventually calls to actually talk to PCO. See throttle.go for the
+// opt-in, priority-aware request throttle this function integrates with -
+// when it's disabled (the default), doRequest below is reached directly
+// with zero added behavior; enabling it via ConfigureThrottle or the
+// PCO_THROTTLE_* env vars adds an admission wait in front of doRequest,
+// scoped per access token.
 func NewRequest[Response interface{}](
+	ctx context.Context,
+	method string,
+	url string,
+	body interface{},
+) (response Response, err error) {
+	cfg := resolveThrottleConfig()
+	if !cfg.Enabled {
+		return doRequest[Response](ctx, method, url, body)
+	}
+
+	if err := throttleAdmit(ctx, cfg); err != nil {
+		return response, err
+	}
+
+	return doRequest[Response](ctx, method, url, body)
+}
+
+// doRequest is NewRequest's actual HTTP call, unchanged from what
+// NewRequest itself did before the throttle existed. Splitting it out
+// keeps the disabled path (see NewRequest above) a genuinely
+// free-standing code path - "if !enabled { ...today's code... }" - rather
+// than the same path with a zero-length queue bolted in front of it.
+func doRequest[Response interface{}](
 	ctx context.Context,
 	method string,
 	url string,
