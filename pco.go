@@ -246,35 +246,75 @@ func (q *QueryParams) Encode() string {
 }
 
 // NewRequest is the one place every resource function in this package
-// eventually calls to actually talk to PCO. See throttle.go for the
-// opt-in, priority-aware request throttle this function integrates with -
-// when it's disabled (the default), doRequest below is reached directly
-// with zero added behavior; enabling it via ConfigureThrottle or the
-// PCO_THROTTLE_* env vars adds an admission wait in front of doRequest,
-// scoped per access token.
+// eventually calls to actually talk to PCO. Three independent, opt-in
+// pieces wrap the actual HTTP call in doRequest below, each a no-op until
+// a consumer turns it on:
+//   - the priority-aware request throttle (throttle.go /
+//     ConfigureThrottle / PCO_THROTTLE_* env vars) - an admission wait in
+//     front of doRequest, scoped per access token;
+//   - the 429 retry (retry.go / ConfigureRetry / PCO_RETRY_ON_429_* env
+//     vars) - on a 429, wait and call doRequest again, up to a bounded
+//     number of attempts;
+//   - the response hook (observe.go / SetResponseHook) - every attempt,
+//     successful or not, is reported for logging/metrics before this
+//     returns.
+//
+// With all three left off (the default for a consumer that never opts
+// into any of them), this is one doRequest call and a couple of cheap
+// config reads/RLocks - no behavior change from before any of the three
+// existed.
 func NewRequest[Response interface{}](
 	ctx context.Context,
 	method string,
 	url string,
 	body interface{},
 ) (response Response, err error) {
-	cfg := resolveThrottleConfig()
-	if !cfg.Enabled {
-		return doRequest[Response](ctx, method, url, body)
+	tCfg := resolveThrottleConfig()
+	rCfg := resolveRetryConfig()
+
+	maxAttempts := 1
+	if rCfg.Enabled {
+		maxAttempts = rCfg.MaxAttempts
 	}
 
-	if err := throttleAdmit(ctx, cfg); err != nil {
-		return response, err
-	}
+	for attempt := 1; ; attempt++ {
+		start := time.Now()
 
-	return doRequest[Response](ctx, method, url, body)
+		var throttleWait time.Duration
+		if tCfg.Enabled {
+			admitStart := time.Now()
+			if admitErr := throttleAdmit(ctx, tCfg); admitErr != nil {
+				callResponseHook(buildResponseInfo(method, url, admitErr, attempt, time.Since(admitStart), time.Since(start)))
+				return response, admitErr
+			}
+			throttleWait = time.Since(admitStart)
+		}
+
+		response, err = doRequest[Response](ctx, method, url, body)
+		callResponseHook(buildResponseInfo(method, url, err, attempt, throttleWait, time.Since(start)))
+
+		if err == nil || attempt >= maxAttempts {
+			return response, err
+		}
+
+		reqErr, ok := err.(*RequestError)
+		if !ok || reqErr.StatusCode != 429 {
+			return response, err // only a 429 is ever retried - see retry.go's doc comment for why
+		}
+
+		select {
+		case <-ctx.Done():
+			return response, ctx.Err()
+		case <-time.After(retryWaitFor(reqErr.RetryAfter, rCfg)):
+		}
+	}
 }
 
 // doRequest is NewRequest's actual HTTP call, unchanged from what
-// NewRequest itself did before the throttle existed. Splitting it out
-// keeps the disabled path (see NewRequest above) a genuinely
-// free-standing code path - "if !enabled { ...today's code... }" - rather
-// than the same path with a zero-length queue bolted in front of it.
+// NewRequest itself did before the throttle/retry/hook existed - splitting
+// it out keeps this the one place a future addition to NewRequest's own
+// wrapping logic can't accidentally touch the request-building code
+// itself.
 func doRequest[Response interface{}](
 	ctx context.Context,
 	method string,

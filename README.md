@@ -166,6 +166,46 @@ songs, err := pco.GetSongs(syncCtx, &pco.SongsParams{})
 
 Other notes: idle per-token limiters (no activity for `IdleEvictAfter`, default 30 minutes) are dropped from the internal registry so a long-running process doesn't accumulate state for users who've stopped making requests. A context whose `Done()` fires while a call is queued returns that context's error promptly - it never waits for its turn to come up.
 
+**A note on what the throttle can't fully guarantee**: it bounds *sustained* rate, not every possible burst pattern. Its token bucket starts full and refills continuously, so a same-token burst that lands right as the bucket refills (drained at the start of one window, refilled again by the start of the next) can, in an unlucky worst case, still get a 429 from PCO even with the throttle on. That's exactly what the 429 retry below exists to catch.
+
+### 429 retry (opt-in)
+
+A caller can still get a real 429 from PCO even with the throttle enabled (see the note just above), or with the throttle off entirely. The retry is a separate, independent opt-in: on a 429, wait and try the same call again, up to a bounded number of attempts.
+
+**Opt in the same two ways as the throttle** - an explicit call always wins if both are present:
+
+```go
+pco.ConfigureRetry(pco.RetryConfig{
+	Enabled: true,
+	// MaxAttempts/MaxWait/FallbackWait are all optional - zero values
+	// fall back to package defaults (see below).
+})
+```
+
+```sh
+export PCO_RETRY_ON_429_ENABLED=true
+export PCO_RETRY_ON_429_MAX_ATTEMPTS=2       # optional, defaults to 2 (one retry)
+export PCO_RETRY_ON_429_MAX_WAIT_SECONDS=30  # optional, defaults to 30
+```
+
+**What happens on a 429** with the retry enabled: `NewRequest` waits, then calls PCO again, for up to `MaxAttempts` total tries. How long it waits: PCO's own `Retry-After` header when the response sent one (PCO always sends a delay in seconds, never an HTTP-date), or `FallbackWait` (default 5s) when it didn't - either way, never longer than `MaxWait` (default 30s), so a caller with its own deadline (a user-facing HTTP handler mid-render) isn't stuck waiting on whatever PCO asked for. A context whose `Done()` fires while waiting to retry returns that context's error promptly, same as the throttle.
+
+**Deliberately narrow**: only a 429 is ever retried. A 422 or other 4xx means the request was built wrong (bad params, a resource that doesn't exist) - retrying it wastes a call and gets the same error again. A 5xx might be transient, but retrying every 5xx blind is a different, broader feature (write idempotency matters there in a way it doesn't for "wait out a rate limit") that this package doesn't attempt.
+
+### Response hook (opt-in)
+
+`SetResponseHook` registers a function called after every `NewRequest` attempt (success or failure, including each attempt of a retried call) - the one place to observe every request this package makes (log a 429, track latency) without wrapping each of the ~40 resource functions individually:
+
+```go
+pco.SetResponseHook(func(info pco.ResponseInfo) {
+	if info.StatusCode == http.StatusTooManyRequests {
+		log.Printf("PCO rate limited: %s %s (attempt %d, retry-after %s)", info.Method, info.URL, info.Attempt, info.RetryAfter)
+	}
+})
+```
+
+`ResponseInfo` carries `Method`/`URL`/`Err`/`StatusCode`/`RetryAfter`/`Attempt`/`ThrottleWait`/`Duration` - see its doc comment in [observe.go](observe.go) for exactly what each field means and when it's zero. Purely observational: the hook's return value (there isn't one) can't change whether a call succeeds, retries, or what's returned to its caller - use `ConfigureRetry` above to change behavior on a 429, not this. Runs synchronously on the calling goroutine, so keep it fast (a log call, a metrics increment) - it directly adds to every request's latency.
+
 ## Modules
 
 | Module | Docs | Covers |
