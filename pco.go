@@ -284,14 +284,14 @@ func NewRequest[Response interface{}](
 		if tCfg.Enabled {
 			admitStart := time.Now()
 			if admitErr := throttleAdmit(ctx, tCfg); admitErr != nil {
-				callResponseHook(buildResponseInfo(method, url, admitErr, attempt, time.Since(admitStart), time.Since(start)))
+				callResponseHook(buildResponseInfo(ctx, method, url, admitErr, attempt, time.Since(admitStart), time.Since(start)))
 				return response, admitErr
 			}
 			throttleWait = time.Since(admitStart)
 		}
 
 		response, err = doRequest[Response](ctx, method, url, body)
-		callResponseHook(buildResponseInfo(method, url, err, attempt, throttleWait, time.Since(start)))
+		callResponseHook(buildResponseInfo(ctx, method, url, err, attempt, throttleWait, time.Since(start)))
 
 		if err == nil || attempt >= maxAttempts {
 			return response, err

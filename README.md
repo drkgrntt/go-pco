@@ -204,7 +204,7 @@ pco.SetResponseHook(func(info pco.ResponseInfo) {
 })
 ```
 
-`ResponseInfo` carries `Method`/`URL`/`Err`/`StatusCode`/`RetryAfter`/`Attempt`/`ThrottleWait`/`Duration` - see its doc comment in [observe.go](observe.go) for exactly what each field means and when it's zero. Purely observational: the hook's return value (there isn't one) can't change whether a call succeeds, retries, or what's returned to its caller - use `ConfigureRetry` above to change behavior on a 429, not this. Runs synchronously on the calling goroutine, so keep it fast (a log call, a metrics increment) - it directly adds to every request's latency.
+`ResponseInfo` carries `Ctx`/`Method`/`URL`/`Err`/`StatusCode`/`RetryAfter`/`Attempt`/`ThrottleWait`/`Duration` - see its doc comment in [observe.go](observe.go) for exactly what each field means and when it's zero. `Ctx` is the exact `context.Context` the call was made with, untouched - a consumer that stashes its own values on the context it passes to a `pco.Get*`/`pco.Create*`/etc. call (a request id, a trace span) can read them back out here, e.g. `log.Printf("... request_id=%s", info.Ctx.Value(myRequestIDKey{}))`, without this package needing to know what those values are. Purely observational: the hook's return value (there isn't one) can't change whether a call succeeds, retries, or what's returned to its caller - use `ConfigureRetry` above to change behavior on a 429, not this. Runs synchronously on the calling goroutine, so keep it fast (a log call, a metrics increment) - it directly adds to every request's latency.
 
 ## Modules
 

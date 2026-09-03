@@ -140,6 +140,35 @@ func TestResponseHookFiresOncePerAttempt(t *testing.T) {
 	}
 }
 
+// TestResponseHookReportsCtx confirms Ctx is the exact context.Context
+// NewRequest was called with (not context.Background() or some other
+// stand-in) - the whole point being that a consumer's own values on it
+// (a request id, a trace span) survive into the hook untouched.
+func TestResponseHookReportsCtx(t *testing.T) {
+	resetResponseHookForTesting(t)
+
+	type ctxKey struct{}
+	ctx := context.WithValue(context.Background(), ctxKey{}, "marker-value")
+
+	var got ResponseInfo
+	SetResponseHook(func(info ResponseInfo) { got = info })
+
+	startTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(t, w, http.StatusOK, `{}`)
+	})
+
+	if _, err := NewRequest[struct{}](ctx, http.MethodGet, baseURL+"/thing", nil); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if got.Ctx == nil {
+		t.Fatal("expected Ctx to be set, got nil")
+	}
+	if v, _ := got.Ctx.Value(ctxKey{}).(string); v != "marker-value" {
+		t.Errorf("expected Ctx to carry the caller's value through, got %q", v)
+	}
+}
+
 // TestResponseHookReportsThrottleWait confirms ThrottleWait reflects real
 // admission delay when the throttle is enabled, not just left at zero -
 // forces a wait by exhausting a fresh token's bucket before the call.

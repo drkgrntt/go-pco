@@ -1,6 +1,7 @@
 package pco
 
 import (
+	"context"
 	"sync"
 	"time"
 )
@@ -16,6 +17,14 @@ import (
 // ResponseInfo describes one completed NewRequest call, success or
 // failure, handed to whatever func SetResponseHook registered.
 type ResponseInfo struct {
+	// Ctx is the exact context.Context NewRequest was called with -
+	// carried through untouched so a hook can pull its own values back out
+	// (a request id, a trace span, whatever the consumer stashed on it
+	// before calling in) without this package needing to know what those
+	// are. Never nil - NewRequest always has a ctx, even if it's just
+	// context.Background().
+	Ctx context.Context
+
 	Method string
 	URL    string
 
@@ -104,8 +113,9 @@ func callResponseHook(info ResponseInfo) {
 // buildResponseInfo assembles a ResponseInfo from one NewRequest attempt's
 // raw outcome - factored out of NewRequest so it's unit-testable without
 // driving a full request.
-func buildResponseInfo(method, url string, err error, attempt int, throttleWait, duration time.Duration) ResponseInfo {
+func buildResponseInfo(ctx context.Context, method, url string, err error, attempt int, throttleWait, duration time.Duration) ResponseInfo {
 	info := ResponseInfo{
+		Ctx:          ctx,
 		Method:       method,
 		URL:          url,
 		Err:          err,
