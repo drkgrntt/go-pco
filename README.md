@@ -212,7 +212,7 @@ pco.SetResponseHook(func(info pco.ResponseInfo) {
 |---|---|---|
 | People | [docs/people.md](docs/people.md) | Organization, People, Addresses, Emails, Phone Numbers |
 | Webhooks | [docs/webhooks.md](docs/webhooks.md) | Subscriptions, Available Events, Event deliveries, receiving & verifying incoming webhooks |
-| Services | [docs/services.md](docs/services.md) | Service Types, Plans, Items, Songs, Teams, Team Positions, Needed Positions, Team Members (PlanPerson), Person Team Position Assignments, Blockouts |
+| Services | [docs/services.md](docs/services.md) | Service Types, Plans, Items, Item Notes, Item Note Categories, Songs, Arrangements, Keys, Teams, Team Positions, Needed Positions, Team Members (PlanPerson), Person Team Position Assignments, Blockouts |
 
 ## Testing
 
@@ -237,10 +237,10 @@ Look up the resource's attributes/relationships/actions at `https://api.planning
 
 ## Status & roadmap
 
-Implemented: People (Organization, People, Addresses, Emails, Phone Numbers), Webhooks (full), Services (Service Types, Plans, Items, Songs - create/read; Teams, Team Positions - read-only; Needed Positions - read-only, see below; Team Members/PlanPerson - create/read/delete; Person Team Position Assignments - full CRUD; Blockouts - read-only by design).
+Implemented: People (Organization, People, Addresses, Emails, Phone Numbers), Webhooks (full), Services (Service Types, Plans, Items - full CRUD plus reorder; Item Notes - full CRUD; Item Note Categories - read-only; Songs - create/read/delete; Arrangements - create/read/update; Keys - create/read; Teams, Team Positions - read-only; Needed Positions - read-only, see below; Team Members/PlanPerson - full CRUD; Person Team Position Assignments - full CRUD; Blockouts - read-only by design).
 
 Not yet implemented, in roughly the order they'd likely matter for a Services-focused integration:
-- Services: Needed Position create/update/delete (every request shape tried 500s live on a real account regardless of body - see [docs/services.md](docs/services.md#needed-positions)), Song update/delete, Arrangements, Item Notes, Schedules, Attachments, and the ~45 remaining resources listed under `/docs/apps/services`.
+- Services: Needed Position create/update/delete (every request shape tried 500s live on a real account regardless of body - see [docs/services.md](docs/services.md#needed-positions)), Song update, Schedules, Attachments, and the ~40 remaining resources listed under `/docs/apps/services`.
 - Other PCO products entirely: Giving, Check-Ins, Calendar, Groups, Publishing, Registrations, Resources.
 
 Pull requests / additions following the pattern in [Extending](#extending) are the intended way this grows.

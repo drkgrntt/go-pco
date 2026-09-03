@@ -1,6 +1,6 @@
 # Services
 
-Wraps a starting subset of the [Services v2 API](https://api.planningcenteronline.com/docs/apps/services): the order-of-service side (Service Types, Plans, Items, Songs, Arrangements, Keys) and the people-scheduling side (Teams, Team Positions, Needed Positions, Team Members / PlanPerson, Person Team Position Assignments, Blockouts).
+Wraps a starting subset of the [Services v2 API](https://api.planningcenteronline.com/docs/apps/services): the order-of-service side (Service Types, Plans, Items, Item Notes, Item Note Categories, Songs, Arrangements, Keys) and the people-scheduling side (Teams, Team Positions, Needed Positions, Team Members / PlanPerson, Person Team Position Assignments, Blockouts).
 
 The Services API has ~65 resources total — the ones below plus Attachments, Schedules, and more remain unimplemented. See [Extending](../README.md#extending) in the root README for how to add another one; `https://api.planningcenteronline.com/docs/apps/services` lists every resource and its documentation path.
 
@@ -68,7 +68,7 @@ plan, err = pco.UpdatePlan(ctx, serviceTypeID, plan.Data.ID, &pco.UpdatePlanPara
 
 **[songs.go](../songs.go)**
 
-A Song is an organization-wide song in the library (not scoped to a service type). No `UpdateSong`/`DeleteSong` yet - only create and read.
+A Song is an organization-wide song in the library (not scoped to a service type). No `UpdateSong` yet - create, read, and delete only.
 
 | Function | Notes |
 |---|---|
@@ -161,6 +161,19 @@ arrangement, err := pco.UpdateArrangement(ctx, song.ID, arrangements.Data[0].ID,
 })
 ```
 
+`UpdateArrangementParams` mirrors `CreateArrangementParams` field-for-field, with one exception: `Notes` is a `*string`, not a plain `string`, so it can be explicitly cleared back to empty (`Notes: &empty`) - a plain string field can't distinguish "leave notes alone" from "clear notes," since both would send the zero value. Every other field is only sent when non-zero, same as create:
+
+```go
+type UpdateArrangementParams struct {
+	Name          string
+	BPM           float64
+	Meter         string
+	ChordChartKey string
+	Notes         *string // nil = don't change; non-nil (including "") is sent
+	Length        int
+}
+```
+
 `KeyAttributes` has no `Capo` field - PCO's API doesn't expose one. The capo number shown in PCO's own UI is computed there from a starting key relative to an instrument's preferred key, not stored as data on this resource; there's nothing here to read or write for it.
 
 `KeyAttributes.AlternateKeys` is `[]AlternateKey` (`Name`/`Pitch`), confirmed live against a real response - PCO's own attribute table documents this field as a bare `string`, which is wrong. `CreateKeyParams` has no `AlternateKeys` field since its create/update wire shape isn't confirmed the same way.
@@ -191,6 +204,18 @@ type CreateItemParams struct {
 	Length          int    // seconds
 	Sequence        int
 	SongID          string // links the item to a library Song; "" for no link
+	// ArrangementID links the item to one of that song's Arrangements
+	// (relationships.arrangement) - an item created with just SongID gets
+	// no arrangement relationship at all, unlike a song added through
+	// Planning Center's own UI, so its chord chart/lyrics/structure won't
+	// show up on the plan without this.
+	ArrangementID string
+	// KeyID links the item to one of that arrangement's Key sub-resources
+	// (relationships.key) - a genuinely separate relationship from
+	// ArrangementID: an item with only ArrangementID set still comes back
+	// with no KeyName/key relationship. Setting KeyID is what actually
+	// populates it.
+	KeyID string
 }
 ```
 
@@ -221,6 +246,22 @@ item, err := pco.CreateItem(ctx, serviceTypeID, planID, &pco.CreateItemParams{
 
 `ItemRelationships` covers `Plan`, `Song`, `Arrangement`, `Key` - all four decode as a bare `General{Type, ID}` regardless (that's the JSON:API relationship shape everywhere in this SDK), but `Arrangement`/`Key` can now be resolved to their full attributes with `GetArrangement`/`GetKey` above (`Song` likewise resolves against the Songs resource above).
 
+```go
+type UpdateItemParams struct {
+	Title           *string
+	Description     *string
+	ServicePosition *string
+	Length          *int
+	// ArrangementID/KeyID link (or, set to a pointer to "", unlink) the
+	// item's arrangement/key relationships - confirmed live: PATCHing
+	// these works, unlike Sequence below.
+	ArrangementID *string
+	KeyID         *string
+}
+```
+
+Every `UpdateItemParams` field is a pointer, not a plain `string`/`int`, for the same reason `Length` always was: a zero value (`0`, `""`) is legitimate data (an empty `Description`, a cleared `ArrangementID`), so it can't also double as "leave this alone" - only non-nil fields are sent, and a nil-vs-`""` pointer is what lets a caller explicitly clear `ArrangementID`/`KeyID` back to unlinked rather than merely omit them.
+
 `UpdateItemParams` deliberately has no `Sequence` field - PATCHing an item's sequence directly is rejected by PCO (`"sequence cannot be assigned"`, confirmed live). Reordering is its own bulk action:
 
 ```go
@@ -228,6 +269,48 @@ err := pco.ReorderItems(ctx, serviceTypeID, planID, []string{item1.ID, item2.ID,
 ```
 
 `ReorderItems` calls PCO's `item_reorder` plan action - confirmed directly against PCO's own machine-readable documentation API (`GET .../services/v2/documentation/2018-11-01/vertices/plan`, itself a plain JSON endpoint even though the human-facing docs site is a JS SPA that isn't crawlable). It expects **every** item's id in the plan, in the final order - there's no documented partial/delta form, so omitting an item likely misplaces it rather than leaving it alone.
+
+## Item Notes & Item Note Categories
+
+**[itemNotes.go](../itemNotes.go), [itemNoteCategories.go](../itemNoteCategories.go)**
+
+An Item Note Category is configured once per Service Type (e.g. "Audio/Visual", "Band", "Vocals") and shared by every plan under it - read-only in this SDK. An Item Note is a note on one Item, belonging to exactly one category; every Item Note function takes the parent `serviceTypeID`/`planID`/`itemID`.
+
+| Function | Notes |
+|---|---|
+| `GetItemNoteCategories(ctx context.Context, serviceTypeID string, params *ItemNoteCategoriesParams) (ItemNoteCategoryListResponse, error)` | `params` may be `nil`. Read-only - no write functions. |
+| `GetItemNotes(ctx context.Context, serviceTypeID, planID, itemID string, params *ItemNotesParams) (ItemNoteListResponse, error)` | Lists every note on the item, across every category - see below. |
+| `CreateItemNote(ctx context.Context, serviceTypeID, planID, itemID string, params *CreateItemNoteParams) (ItemNoteResponse, error)` | See below. |
+| `UpdateItemNote(ctx context.Context, serviceTypeID, planID, itemID, noteID string, params *UpdateItemNoteParams) (ItemNoteResponse, error)` | `Content` only - see below. |
+| `DeleteItemNote(ctx context.Context, serviceTypeID, planID, itemID, noteID string) error` | |
+
+```go
+type CreateItemNoteParams struct {
+	Content            string
+	ItemNoteCategoryID string
+}
+
+type UpdateItemNoteParams struct {
+	Content string
+}
+```
+
+```go
+categories, err := pco.GetItemNoteCategories(ctx, serviceTypeID, nil)
+
+note, err := pco.CreateItemNote(ctx, serviceTypeID, planID, itemID, &pco.CreateItemNoteParams{
+	Content:            "Bring in-ear packs for the full band",
+	ItemNoteCategoryID: categories.Data[0].ID,
+})
+
+note, err = pco.UpdateItemNote(ctx, serviceTypeID, planID, itemID, note.Data.ID, &pco.UpdateItemNoteParams{
+	Content: "Bring in-ear packs for the full band, including the sub",
+})
+```
+
+`ItemNoteCategoryID` is required on create - PCO rejects a create with no category (confirmed live) - and, per PCO's own documentation, can never be changed on an existing note afterward: to move a note to a different category, delete it and create a new one. `UpdateItemNoteParams` only has `Content` accordingly - it's the only update-assignable attribute PCO documents for Item Note.
+
+`GetItemNotes` has no per-category filter param documented, so a caller wanting "the note for category X" filters the returned list client-side by `Attributes.CategoryName` (or the `ItemNoteCategory` relationship id) - `CategoryName` is denormalized onto the note itself (confirmed live), so displaying existing notes doesn't need a separate category fetch/join.
 
 ## Teams
 
@@ -285,6 +368,7 @@ A Team Member (PCO's `PlanPerson` type) is a person actually assigned to fill a 
 |---|---|
 | `GetTeamMembers(ctx context.Context, serviceTypeID, planID string, params *TeamMembersParams) (PlanPersonListResponse, error)` | `params` may be `nil`. |
 | `CreateTeamMember(ctx context.Context, serviceTypeID, planID string, params *CreateTeamMemberParams) (PlanPersonResponse, error)` | See below. |
+| `UpdateTeamMember(ctx context.Context, serviceTypeID, planID, planPersonID string, params *UpdateTeamMemberParams) (PlanPersonResponse, error)` | Partial update - see below. |
 | `DeleteTeamMember(ctx context.Context, serviceTypeID, planID, planPersonID string) error` | See note below. |
 | `GetPersonPlanPeople(ctx context.Context, personID string, params *PersonPlanPeopleParams) (PlanPersonListResponse, error)` | A person's own assignment history - see below. |
 
@@ -294,6 +378,7 @@ type CreateTeamMemberParams struct {
 	TeamID           string
 	TeamPositionName string
 	Status           string // PlanPersonStatus* constant; defaults to Unconfirmed if empty
+	Notes            string // confirmed both create- and update-assignable, unlike Item.Sequence
 }
 ```
 
@@ -306,6 +391,23 @@ member, err := pco.CreateTeamMember(ctx, serviceTypeID, planID, &pco.CreateTeamM
 
 err = pco.DeleteTeamMember(ctx, serviceTypeID, planID, member.Data.ID)
 ```
+
+```go
+type UpdateTeamMemberParams struct {
+	Status           string
+	DeclineReason    string
+	Notes            string
+	TeamPositionName string
+}
+```
+
+```go
+member, err = pco.UpdateTeamMember(ctx, serviceTypeID, planID, member.Data.ID, &pco.UpdateTeamMemberParams{
+	Status: pco.PlanPersonStatusConfirmed,
+})
+```
+
+`UpdateTeamMemberParams` is a partial update - only non-empty fields are sent - and deliberately doesn't cover every field PCO's `update_assignable` list allows (`person_id`/`team_id` are in that list too, meaning PCO would let you re-point an existing assignment at a different person/team entirely). Re-assigning who's filling a position is modeled as delete-and-recreate instead, matching how the rest of this SDK treats person/song relationships as fixed at creation, not something to sneak into a partial update.
 
 **`DeleteTeamMember` uses the plan-scoped path, not PCO's documented person-scoped one.** PCO's docs point delete at `/people/{person_id}/plan_people/{plan_person_id}`, but that path returned a 404 live against a real (older/past) plan's assignment while the plan-scoped `/service_types/{id}/plans/{id}/team_members/{id}` path it was created on deleted it without issue. Confirmed reliable regardless of the plan's age, so this SDK always uses the plan-scoped path for both create and delete.
 
