@@ -2,6 +2,7 @@ package pco
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 )
@@ -69,10 +70,39 @@ type ArrangementAttributes struct {
 // string rather than parsed, since PCO doesn't document its exact unit
 // breakdown.
 type ArrangementSequenceStep struct {
-	Label  string `json:"label"`
-	Number string `json:"number"`
-	T      string `json:"t"`
-	SID    int    `json:"sid"`
+	Label string `json:"label"`
+	// Number is usually a string (e.g. "2" for the second "Verse") but PCO
+	// has also been observed sending it as a bare JSON number for at least
+	// one real arrangement - StringOrNumber accepts either shape rather
+	// than failing the whole arrangement fetch over one field's type.
+	Number StringOrNumber `json:"number"`
+	T      string         `json:"t"`
+	SID    int            `json:"sid"`
+}
+
+// StringOrNumber decodes a JSON field PCO sends inconsistently as either a
+// string or a bare number, normalizing it to a string either way - mirrors
+// StringOrStrings (songs.go) for the same class of PCO inconsistency.
+type StringOrNumber string
+
+func (s *StringOrNumber) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		*s = ""
+		return nil
+	}
+
+	var str string
+	if err := json.Unmarshal(data, &str); err == nil {
+		*s = StringOrNumber(str)
+		return nil
+	}
+
+	var num json.Number
+	if err := json.Unmarshal(data, &num); err != nil {
+		return err
+	}
+	*s = StringOrNumber(num.String())
+	return nil
 }
 
 type ArrangementData struct {

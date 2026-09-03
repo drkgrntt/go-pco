@@ -165,7 +165,7 @@ arrangement, err := pco.UpdateArrangement(ctx, song.ID, arrangements.Data[0].ID,
 
 `KeyAttributes.AlternateKeys` is `[]AlternateKey` (`Name`/`Pitch`), confirmed live against a real response - PCO's own attribute table documents this field as a bare `string`, which is wrong. `CreateKeyParams` has no `AlternateKeys` field since its create/update wire shape isn't confirmed the same way.
 
-`ArrangementAttributes.SequenceFull` is `[]ArrangementSequenceStep` (`Label`/`Number`/`T`/`SID`), not `[]string` like its `Sequence`/`SequenceShort` siblings - PCO's own docs just say "array" with no element shape, and a live response (a manually-created song with a real chord chart) proved it's one object per section, not a bare string.
+`ArrangementAttributes.SequenceFull` is `[]ArrangementSequenceStep` (`Label`/`Number`/`T`/`SID`), not `[]string` like its `Sequence`/`SequenceShort` siblings - PCO's own docs just say "array" with no element shape, and a live response (a manually-created song with a real chord chart) proved it's one object per section, not a bare string. `ArrangementSequenceStep.Number` is `StringOrNumber` rather than a plain `string` - PCO usually sends it as a string but has been observed (production, one real arrangement) sending a bare JSON number instead, which would otherwise fail the whole arrangement fetch.
 
 ## Items
 
