@@ -230,6 +230,20 @@ func TestNewRequestContextTokenTakesPrecedence(t *testing.T) {
 	}
 }
 
+// TestAccessTokenFromContext confirms AccessTokenFromContext round-trips a
+// token stored by WithAccessToken, and reports absent (not a zero-value
+// token) when none was ever set.
+func TestAccessTokenFromContext(t *testing.T) {
+	ctx := WithAccessToken(context.Background(), "user-token")
+	if token, ok := AccessTokenFromContext(ctx); !ok || token != "user-token" {
+		t.Errorf("expected (user-token, true), got (%q, %v)", token, ok)
+	}
+
+	if token, ok := AccessTokenFromContext(context.Background()); ok || token != "" {
+		t.Errorf("expected (\"\", false) for a context with no token, got (%q, %v)", token, ok)
+	}
+}
+
 // TestNewRequestFallsBackToPATWithoutContextToken confirms the PAT is still
 // used when no context token is present - existing scripts/tests that never
 // call WithAccessToken keep working unchanged.

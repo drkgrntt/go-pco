@@ -61,6 +61,11 @@ type ItemListResponse struct {
 }
 
 type ItemsParams struct {
+	// Include adds related resources (e.g. "item_notes", "song",
+	// "arrangement", "key") to the response's "included" array. See
+	// https://developer.planning.center/docs/#/apps/services/2018-11-01/vertices/item
+	// for the full list PCO supports on this endpoint.
+	Include []string
 	PerPage int
 	Offset  int
 }
@@ -70,7 +75,7 @@ func GetItems(ctx context.Context, serviceTypeID, planID string, params *ItemsPa
 		params = &ItemsParams{}
 	}
 
-	q := NewQueryParams().PerPage(params.PerPage).Offset(params.Offset)
+	q := NewQueryParams().Include(params.Include...).PerPage(params.PerPage).Offset(params.Offset)
 
 	url := fmt.Sprintf("%s/%s%s", baseURL, itemsPath(serviceTypeID, planID), q.Encode())
 

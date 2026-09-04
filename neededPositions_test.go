@@ -35,3 +35,18 @@ func TestGetNeededPositions(t *testing.T) {
 		t.Errorf("unexpected team relationship: %+v", np.Relationships.Team)
 	}
 }
+
+func TestGetNeededPositionsBuildsIncludeParam(t *testing.T) {
+	startTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		if got := q.Get("include"); got != "team" {
+			t.Errorf("expected include=team, got %q", got)
+		}
+
+		writeJSON(t, w, http.StatusOK, `{"data":[]}`)
+	})
+
+	if _, err := GetNeededPositions(context.Background(), "1", "2", &NeededPositionsParams{Include: []string{"team"}}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}

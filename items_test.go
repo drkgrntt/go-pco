@@ -23,6 +23,21 @@ func TestGetItems(t *testing.T) {
 	}
 }
 
+func TestGetItemsBuildsIncludeParam(t *testing.T) {
+	startTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		if got := q.Get("include"); got != "item_notes" {
+			t.Errorf("expected include=item_notes, got %q", got)
+		}
+
+		writeJSON(t, w, http.StatusOK, `{"data":[]}`)
+	})
+
+	if _, err := GetItems(context.Background(), "st-1", "p-1", &ItemsParams{Include: []string{"item_notes"}}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
 func TestGetItem(t *testing.T) {
 	startTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 		if want := "/" + serviceTypesPath + "/st-1/plans/p-1/items/i-1"; r.URL.Path != want {
