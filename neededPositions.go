@@ -44,6 +44,11 @@ type NeededPositionListResponse struct {
 }
 
 type NeededPositionsParams struct {
+	// Include adds related resources (e.g. "team") to the response's
+	// "included" array. See
+	// https://developer.planning.center/docs/#/apps/services/2018-11-01/vertices/needed_position
+	// for the full list PCO supports on this endpoint.
+	Include []string
 	PerPage int
 	Offset  int
 }
@@ -57,7 +62,7 @@ func GetNeededPositions(ctx context.Context, serviceTypeID, planID string, param
 		params = &NeededPositionsParams{}
 	}
 
-	q := NewQueryParams().PerPage(params.PerPage).Offset(params.Offset)
+	q := NewQueryParams().Include(params.Include...).PerPage(params.PerPage).Offset(params.Offset)
 
 	url := fmt.Sprintf("%s/%s%s", baseURL, neededPositionsPath(serviceTypeID, planID), q.Encode())
 

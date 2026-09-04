@@ -130,6 +130,11 @@ type ArrangementsParams struct {
 	// OrderBy sorts by a can_order_by field: "created_at", "name", or
 	// "updated_at". Prefix with "-" for descending.
 	OrderBy string
+	// Include adds related resources (e.g. "keys", "sections") to the
+	// response's "included" array. See
+	// https://developer.planning.center/docs/#/apps/services/2018-11-01/vertices/arrangement
+	// for the full list PCO supports on this endpoint.
+	Include []string
 	PerPage int
 	Offset  int
 }
@@ -141,6 +146,7 @@ func GetArrangements(ctx context.Context, songID string, params *ArrangementsPar
 
 	q := NewQueryParams().
 		OrderBy(params.OrderBy).
+		Include(params.Include...).
 		PerPage(params.PerPage).
 		Offset(params.Offset)
 

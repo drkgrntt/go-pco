@@ -65,6 +65,17 @@ func WithAccessToken(ctx context.Context, token string) context.Context {
 	return context.WithValue(ctx, accessTokenKey, token)
 }
 
+// AccessTokenFromContext returns the access token WithAccessToken stored
+// on ctx, if any. Exists so a caller holding a context built earlier in a
+// request (rather than the original *fiber.Ctx or a bare token string)
+// can still construct an equivalent, independently-lived context for a
+// background goroutine - see pco-assistant's Song Info queue-on-miss sync
+// for the motivating case.
+func AccessTokenFromContext(ctx context.Context) (string, bool) {
+	token, ok := ctx.Value(accessTokenKey).(string)
+	return token, ok
+}
+
 type Meta struct {
 	CanFilter  []string `json:"can_filter"`
 	CanInclude []string `json:"can_include"`

@@ -73,6 +73,21 @@ func TestGetArrangements(t *testing.T) {
 	}
 }
 
+func TestGetArrangementsBuildsIncludeParam(t *testing.T) {
+	startTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		if got := q.Get("include"); got != "keys" {
+			t.Errorf("expected include=keys, got %q", got)
+		}
+
+		writeJSON(t, w, http.StatusOK, `{"data":[]}`)
+	})
+
+	if _, err := GetArrangements(context.Background(), "song-1", &ArrangementsParams{Include: []string{"keys"}}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
 func TestGetArrangement(t *testing.T) {
 	startTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 		if want := "/" + songsPath + "/song-1/arrangements/arr-1"; r.URL.Path != want {
