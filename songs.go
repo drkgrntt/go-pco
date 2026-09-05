@@ -174,6 +174,65 @@ func CreateSong(ctx context.Context, params *CreateSongParams) (response SongRes
 	return
 }
 
+// UpdateSongParams is a partial update - only set (non-nil) fields are
+// sent, so archiving a song (Hidden) never clobbers Title/Author/etc back
+// to empty. Every field is a pointer, unlike CreateSongParams, for the same
+// reason UpdateItemParams' are: a zero value (false, "", 0) is legitimate
+// data, so a plain field can't also mean "leave this alone" - Hidden in
+// particular needs to distinguish "leave hidden as-is" from "explicitly
+// set hidden=false," which a bare bool can't do.
+//
+// Like CreateSongParams, there's deliberately no Notes field - PCO manages
+// a song's notes as its own sub-resource, not a plain Song attribute.
+type UpdateSongParams struct {
+	Title      *string
+	Author     *string
+	Admin      *string
+	Copyright  *string
+	CCLINumber *int
+	Themes     *string
+	// Hidden is PCO's own archive flag - confirmed live: PATCHing this
+	// actually works, and the song immediately drops out of (or reappears
+	// in) a where[hidden]=false query, no further app-side filtering
+	// needed.
+	Hidden *bool
+}
+
+func UpdateSong(ctx context.Context, id string, params *UpdateSongParams) (response SongResponse, err error) {
+	if params == nil {
+		return response, fmt.Errorf("params cannot be nil")
+	}
+
+	url := fmt.Sprintf("%s/%s/%s", baseURL, songsPath, id)
+
+	attributes := map[string]any{}
+	if params.Title != nil {
+		attributes["title"] = *params.Title
+	}
+	if params.Author != nil {
+		attributes["author"] = *params.Author
+	}
+	if params.Admin != nil {
+		attributes["admin"] = *params.Admin
+	}
+	if params.Copyright != nil {
+		attributes["copyright"] = *params.Copyright
+	}
+	if params.CCLINumber != nil {
+		attributes["ccli_number"] = *params.CCLINumber
+	}
+	if params.Themes != nil {
+		attributes["themes"] = *params.Themes
+	}
+	if params.Hidden != nil {
+		attributes["hidden"] = *params.Hidden
+	}
+
+	response, err = NewRequest[SongResponse](ctx, "PATCH", url, NewRequestBody(attributes))
+
+	return
+}
+
 func DeleteSong(ctx context.Context, id string) (err error) {
 	url := fmt.Sprintf("%s/%s/%s", baseURL, songsPath, id)
 
