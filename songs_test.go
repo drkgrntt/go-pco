@@ -215,6 +215,60 @@ func TestCreateSongNilParams(t *testing.T) {
 	}
 }
 
+func TestUpdateSong(t *testing.T) {
+	startTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPatch {
+			t.Errorf("expected PATCH, got %s", r.Method)
+		}
+		if want := "/" + songsPath + "/1"; r.URL.Path != want {
+			t.Errorf("expected path %s, got %s", want, r.URL.Path)
+		}
+		attrs := attributes(t, decodeBody(t, r))
+		if attrs["hidden"] != true {
+			t.Errorf("expected hidden true, got %v", attrs["hidden"])
+		}
+		writeJSON(t, w, http.StatusOK, `{"data":{"type":"Song","id":"1","attributes":{"title":"Holy Forever","hidden":true}}}`)
+	})
+
+	hidden := true
+	response, err := UpdateSong(context.Background(), "1", &UpdateSongParams{Hidden: &hidden})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !response.Data.Attributes.Hidden {
+		t.Errorf("expected hidden true, got %v", response.Data.Attributes.Hidden)
+	}
+}
+
+// TestUpdateSongPartial confirms unset fields are omitted from the request
+// entirely rather than sent as zero values - the whole point of
+// UpdateSongParams' all-pointer shape, since otherwise archiving a song
+// (Hidden only) would silently clobber Title/Author/etc back to blank in
+// the real PCO record.
+func TestUpdateSongPartial(t *testing.T) {
+	startTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		attrs := attributes(t, decodeBody(t, r))
+		if len(attrs) != 1 {
+			t.Errorf("expected exactly one attribute set, got %+v", attrs)
+		}
+		if attrs["hidden"] != false {
+			t.Errorf("expected hidden false, got %v", attrs["hidden"])
+		}
+		writeJSON(t, w, http.StatusOK, `{"data":{"type":"Song","id":"1","attributes":{"hidden":false}}}`)
+	})
+
+	hidden := false
+	if _, err := UpdateSong(context.Background(), "1", &UpdateSongParams{Hidden: &hidden}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestUpdateSongNilParams(t *testing.T) {
+	if _, err := UpdateSong(context.Background(), "1", nil); err == nil {
+		t.Fatal("expected an error for nil params")
+	}
+}
+
 func TestDeleteSong(t *testing.T) {
 	startTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 		if want := "/" + songsPath + "/1"; r.URL.Path != want {
