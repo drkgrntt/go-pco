@@ -21,29 +21,47 @@ func attachmentsPath(songID string) string {
 // no melodic notation; an Attachment is an arbitrary file blob, structured
 // notation or not.
 //
-// Field names here are inferred from PCO's ordinary JSON:API attribute
-// naming convention (matching every other resource in this package,
-// including Arrangement's own filename-adjacent fields) rather than
-// confirmed against a real live response - this package's own doc comments
-// elsewhere in the codebase (see arrangements.go, songs.go) are normally
-// only written after a live check, but that step could not be completed
-// this session (sandboxed build environment with no reachable PCO
-// credentials or dev database). In particular, whether URL is a long-lived
-// link or an expiring pre-signed one is NOT verified - pco-assistant's own
-// integration deliberately treats it as expiring (never caches it, always
-// live-fetches on click) specifically because that assumption couldn't be
-// confirmed either way. Treat every field name here as provisional until
-// checked against a real GetAttachments response for a song with a real
-// uploaded file.
+// Field names confirmed live (2026-09-06) by creating and deleting a real
+// throwaway attachment against a dev org song (upload via
+// upload.planningcenteronline.com/v2/files, then POST .../songs/:id/attachments
+// with the returned file_upload_identifier) and reading the response back -
+// this package's normal "verify before documenting" convention (see
+// arrangements.go, songs.go), delayed past the original build because that
+// session's sandbox had no reachable PCO credentials.
+//
+// The real Attachment resource has more attributes than this struct wraps
+// (allow_mp3_download, attachable_type, deleted_at, display_name,
+// downloadable, filetype, has_preview, linked_url, page_order, pco_type,
+// remote_link, streamable, thumbnail_url, transposable, web_streamable,
+// among others) - only the subset pco-assistant actually uses is wrapped
+// here, matching this package's usual "wrap what's used" convention, not an
+// oversight.
+//
+// **URL is a Planning Center web page, not the file itself** - confirmed
+// live as `https://services.planningcenteronline.com/attachments/:id`, the
+// same page a person sees clicking the attachment inside PCO's own UI, not
+// a direct/downloadable file link. Getting the actual file bytes requires a
+// separate action this package does NOT wrap: `POST
+// .../songs/:song_id/attachments/:id/open` (a GET on that path returns only
+// its own documentation, confirmed live), which returns an
+// `AttachmentActivity` resource whose `attachment_url` attribute holds the
+// real file link - not confirmed here whether that link is long-lived or a
+// short-lived pre-signed one, since exercising it further tripped this
+// session's own permission guardrails. pco-assistant's `OpenSongAttachment`
+// redirects to this struct's URL (the PCO web page) rather than the
+// unwrapped /open flow - a reasonable v1 (PCO's own page handles auth/
+// viewing/downloading for an already-PCO-authenticated user), not a bug,
+// but the two are materially different destinations and any future work
+// wanting an actual file download/stream needs to wrap the /open action
+// and AttachmentActivity, not just read URL harder.
 type AttachmentAttributes struct {
 	ContentType string    `json:"content_type"`
 	CreatedAt   time.Time `json:"created_at"`
 	Filename    string    `json:"filename"`
 	FileSize    int       `json:"file_size"`
 	UpdatedAt   time.Time `json:"updated_at"`
-	// URL downloads/displays the actual file. See this struct's own doc
-	// comment above - not confirmed live whether this is long-lived or an
-	// expiring pre-signed link.
+	// URL is PCO's own attachment web page, not a raw file link - see this
+	// struct's own doc comment above.
 	URL string `json:"url"`
 }
 
