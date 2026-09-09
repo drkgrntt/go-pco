@@ -312,6 +312,39 @@ note, err = pco.UpdateItemNote(ctx, serviceTypeID, planID, itemID, note.Data.ID,
 
 `GetItemNotes` has no per-category filter param documented, so a caller wanting "the note for category X" filters the returned list client-side by `Attributes.CategoryName` (or the `ItemNoteCategory` relationship id) - `CategoryName` is denormalized onto the note itself (confirmed live), so displaying existing notes doesn't need a separate category fetch/join.
 
+## Item Assignments
+
+**[itemAssignments.go](../itemAssignments.go)**
+
+An Item Assignment links a Person (or, per PCO's docs, an open `TeamPosition` placeholder - not yet exercised by this SDK) to one specific plan Item. This is the resource backing what PCO's own Services UI on the plan-item edit panel labels **"Song leader"** - there's no separate "song leader" field or resource; it's this one, scoped to a Person, one assignment per leader. Confirmed directly against PCO's machine-readable docs (`GET .../services/v2/documentation/2018-11-01/vertices/item_assignment`) and live against a real account with a leader actually assigned in PCO's UI. Every function takes the parent `serviceTypeID`/`planID`/`itemID`.
+
+| Function | Notes |
+|---|---|
+| `GetItemAssignments(ctx context.Context, serviceTypeID, planID, itemID string, params *ItemAssignmentsParams) (ItemAssignmentListResponse, error)` | Lists every assignment on the item - see below. |
+| `CreateItemAssignment(ctx context.Context, serviceTypeID, planID, itemID string, params *CreateItemAssignmentParams) (ItemAssignmentResponse, error)` | See below. |
+| `DeleteItemAssignment(ctx context.Context, serviceTypeID, planID, itemID, assignmentID string) error` | |
+
+```go
+type CreateItemAssignmentParams struct {
+	PersonID       string
+	AssignableType string // one of the ItemAssignmentAssignableType* constants; defaults to Person
+}
+```
+
+```go
+assignment, err := pco.CreateItemAssignment(ctx, serviceTypeID, planID, itemID, &pco.CreateItemAssignmentParams{
+	PersonID: personID,
+})
+
+err = pco.DeleteItemAssignment(ctx, serviceTypeID, planID, itemID, assignment.Data.ID)
+```
+
+There is **no update endpoint** - PCO's vertex docs list `can_update: false` (only `can_create`/`can_destroy`) - so reassigning a song's leader to someone else is delete-and-recreate, the same convention `CreateTeamMember`/`UpdateTeamMember` already use for reassigning a person to a position.
+
+PCO documents `assignable_type`/`assignable_id` as plain **attributes** on create (`create_assignable: ["assignable_type", "assignable_id"]`), not a `relationships` object the way `CreateTeamMember` links `person`/`team` - confirmed against the vertex docs, so `CreateItemAssignment` sends them as attributes rather than following `CreateTeamMember`'s shape, even though the response itself comes back with a normal `relationships.assignable` object.
+
+`GetItemAssignments` has no documented query/order/include support (`can_query`/`can_order`/`can_include` are all empty in the vertex docs) - a caller wanting just the leader out of a list filters the returned data client-side. In practice a song item has at most one Person-type assignment (PCO's UI only ever showed one "Add leader" slot in testing), but this isn't a documented one-per-item constraint, so don't assume it length-checks to exactly 0 or 1 without handling more.
+
 ## Teams
 
 **[teams.go](../teams.go)**
