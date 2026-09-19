@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -95,6 +96,22 @@ type SongsParams struct {
 	// (both hidden and visible songs returned), matching GetSongs'
 	// pre-existing behavior.
 	Hidden *bool
+	// SongTagIDs/SongTagGroupIDs/ArrangementTagIDs/ArrangementTagGroupIDs
+	// filter to songs tagged with any of the given ids, sent as PCO's
+	// comma-joined `where[song_tag_ids]=id1,id2`/etc - confirmed live
+	// against the Services v2 API: Songs#index's `can_query_by` includes
+	// all four (song_tag_ids, song_tag_group_ids, arrangement_tag_ids,
+	// arrangement_tag_group_ids). The "song" ones filter by tags assigned
+	// directly to the song (see AssignSongTags in tags.go); the
+	// "arrangement" ones filter by tags assigned to one of the song's
+	// arrangements instead - a separate tag scope, per
+	// TagGroupAttributes.TagsFor's "song" vs. "arrangement" distinction.
+	// Empty/nil slices omit the filter entirely, same convention as IDs on
+	// PeopleParams.
+	SongTagIDs             []string
+	SongTagGroupIDs        []string
+	ArrangementTagIDs      []string
+	ArrangementTagGroupIDs []string
 }
 
 func GetSongs(ctx context.Context, params *SongsParams) (response SongListResponse, err error) {
@@ -109,6 +126,11 @@ func GetSongs(ctx context.Context, params *SongsParams) (response SongListRespon
 	if params.Hidden != nil {
 		q = q.Where("hidden", strconv.FormatBool(*params.Hidden))
 	}
+	q = q.
+		Where("song_tag_ids", strings.Join(params.SongTagIDs, ",")).
+		Where("song_tag_group_ids", strings.Join(params.SongTagGroupIDs, ",")).
+		Where("arrangement_tag_ids", strings.Join(params.ArrangementTagIDs, ",")).
+		Where("arrangement_tag_group_ids", strings.Join(params.ArrangementTagGroupIDs, ","))
 
 	url := fmt.Sprintf("%s/%s%s", baseURL, songsPath, q.Encode())
 
