@@ -80,6 +80,50 @@ func TestGetSongsNilHiddenOmitsFilter(t *testing.T) {
 	}
 }
 
+func TestGetSongsTagFilters(t *testing.T) {
+	startTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		if q.Get("where[song_tag_ids]") != "1,2" {
+			t.Errorf("expected where[song_tag_ids]=1,2, got %q", q.Get("where[song_tag_ids]"))
+		}
+		if q.Get("where[song_tag_group_ids]") != "3" {
+			t.Errorf("expected where[song_tag_group_ids]=3, got %q", q.Get("where[song_tag_group_ids]"))
+		}
+		if q.Get("where[arrangement_tag_ids]") != "4,5" {
+			t.Errorf("expected where[arrangement_tag_ids]=4,5, got %q", q.Get("where[arrangement_tag_ids]"))
+		}
+		if q.Get("where[arrangement_tag_group_ids]") != "6" {
+			t.Errorf("expected where[arrangement_tag_group_ids]=6, got %q", q.Get("where[arrangement_tag_group_ids]"))
+		}
+		writeJSON(t, w, http.StatusOK, `{"data":[]}`)
+	})
+
+	_, err := GetSongs(context.Background(), &SongsParams{
+		SongTagIDs:             []string{"1", "2"},
+		SongTagGroupIDs:        []string{"3"},
+		ArrangementTagIDs:      []string{"4", "5"},
+		ArrangementTagGroupIDs: []string{"6"},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestGetSongsNilTagFiltersOmitted(t *testing.T) {
+	startTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		for _, key := range []string{"where[song_tag_ids]", "where[song_tag_group_ids]", "where[arrangement_tag_ids]", "where[arrangement_tag_group_ids]"} {
+			if _, ok := r.URL.Query()[key]; ok {
+				t.Errorf("expected no %s param for unset filter, got %q", key, r.URL.RawQuery)
+			}
+		}
+		writeJSON(t, w, http.StatusOK, `{"data":[]}`)
+	})
+
+	if _, err := GetSongs(context.Background(), &SongsParams{}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
 func TestGetSongsNilParams(t *testing.T) {
 	startTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.RawQuery != "" {

@@ -1,6 +1,6 @@
 # Services
 
-Wraps a starting subset of the [Services v2 API](https://api.planningcenteronline.com/docs/apps/services): the order-of-service side (Service Types, Plans, Items, Item Notes, Item Note Categories, Songs, Arrangements, Keys) and the people-scheduling side (Teams, Team Positions, Needed Positions, Team Members / PlanPerson, Person Team Position Assignments, Blockouts).
+Wraps a starting subset of the [Services v2 API](https://api.planningcenteronline.com/docs/apps/services): the order-of-service side (Service Types, Plans, Items, Item Notes, Item Note Categories, Songs, Arrangements, Keys), the people-scheduling side (Teams, Team Positions, Needed Positions, Team Members / PlanPerson, Person Team Position Assignments, Blockouts), and tagging (Tag Groups, Tags).
 
 The Services API has ~65 resources total — the ones below plus Attachments, Schedules, and more remain unimplemented. See [Extending](../README.md#extending) in the root README for how to add another one; `https://api.planningcenteronline.com/docs/apps/services` lists every resource and its documentation path.
 
@@ -496,6 +496,48 @@ blockouts, err := pco.GetBlockouts(ctx, personID, &pco.BlockoutsParams{Filter: "
 ```
 
 `BlockoutAttributes` covers `Reason`, `StartsAt`/`EndsAt` (a single non-recurring window), and `RepeatFrequency`/`RepeatInterval`/`RepeatPeriod`/`RepeatUntil` for a recurring blockout - this SDK decodes the recurrence fields but doesn't expand them into individual dates; that's on the caller.
+
+## Tag Groups & Tags
+
+**[tagGroups.go](../tagGroups.go), [tags.go](../tags.go)**
+
+A Tag Group is an org-configured category of tags (e.g. "Type", "Service", "Team"), each scoped to one taggable kind via `TagsFor` (`"song"`, `"arrangement"`, `"person"`, `"media"` observed live - a plain string, not an enum, since PCO may support more). A Tag is one option within a group (e.g. "Chorus" under "Type"). Tag Groups are top-level; Tags are read either nested under their group or, independently, as whatever's currently assigned to one song. All shapes below confirmed live (2026-09-18) against a real dev org.
+
+| Function | Notes |
+|---|---|
+| `GetTagGroups(ctx context.Context, params *TagGroupsParams) (TagGroupListResponse, error)` | `params` may be `nil`. `Include: []string{"tags"}` sideloads each group's own tags. |
+| `GetTagGroup(ctx context.Context, id string) (TagGroupResponse, error)` | |
+| `GetTags(ctx context.Context, tagGroupID string, params *TagsParams) (TagListResponse, error)` | `params` may be `nil`. A group's own tags, as an alternative to `GetTagGroups`' `Include`. |
+| `GetSongTags(ctx context.Context, songID string) (TagListResponse, error)` | A song's currently-assigned tags across every tag group. |
+| `AssignSongTags(ctx context.Context, songID string, tagIDs []string) error` | See below - the one non-obvious shape in this SDK. |
+
+```go
+groups, err := pco.GetTagGroups(ctx, &pco.TagGroupsParams{Include: []string{"tags"}})
+
+tags, err := pco.GetSongTags(ctx, songID)
+```
+
+`TagGroupAttributes.ServiceTypeFolderName` is a `*string` (observed `null` live) rather than a plain string, since PCO's docs don't say null and `""` mean the same thing here. `TagGroupRelationships.Tags` and `TagRelationships.TagGroup` are plain `HasManyRelationship`/`HasOneRelationship` - bare resource identifiers only, no attributes - the same shape `PersonRelationships` already uses in `people.go`.
+
+**`CreateTagGroup`/`UpdateTagGroup`/`DeleteTagGroup` are deliberately not implemented.** A live probe attempting `POST /services/v2/tag_groups` with a plausible JSON:API body got `403 Forbidden` ("cannot create a TagGroup") from a normal signed-in session - both the real request body shape and the PCO permission tier required are unconfirmed. Don't guess this from JSON:API convention; re-verify live from a higher-permission session first.
+
+**`AssignSongTags` does not take the shape you'd expect.** `POST /services/v2/songs/{songID}/assign_tags` rejects both a flat attribute body (`{"data":{"attributes":{"tag_ids":[...]}}}` → 400, `"Can't assign nil tags, please pass tag_ids you want to assign"`) and a bare-array body (`{"data":[...]}` → 422, `"Resource object must be an object"`). The only shape that works is a `relationships.tags.data` array on a single `TagGroup`-typed data object:
+
+```go
+err := pco.AssignSongTags(ctx, songID, []string{tag1.ID, tag2.ID})
+```
+
+sends:
+
+```json
+{"data": {"type": "TagGroup", "relationships": {"tags": {"data": [{"type": "Tag", "id": "..."}, {"type": "Tag", "id": "..."}]}}}}
+```
+
+PCO returns `204 No Content` on success, so `AssignSongTags` returns just an `error`, not a response envelope.
+
+**This call is a full replace of that tag group's assignment on the song, not additive.** Calling it a second time with a different, non-overlapping set of tag ids (from the same tag group as the first call) removes the first call's tags rather than adding to them; an empty `tagIDs` slice clears the group's assignment on the song entirely (still `204`). Callers must always pass the complete desired tag-id set for the group being changed - never one tag at a time. What happens when `tagIDs` mixes tags from two different tag groups in one call is **not confirmed live** (no second real song-scoped tag group was available to test against) - don't assume either a clean per-group split or a rejection.
+
+`SongsParams` on the Songs resource (see above) also gained four tag filters confirmed live via `Songs#index`'s `can_query_by`: `SongTagIDs`, `SongTagGroupIDs`, `ArrangementTagIDs`, `ArrangementTagGroupIDs` - each a `[]string` sent comma-joined as `where[song_tag_ids]=id1,id2`/etc, same convention as `PeopleParams.IDs`.
 
 ---
 
