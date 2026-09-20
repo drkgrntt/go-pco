@@ -92,13 +92,19 @@ func GetTagGroup(ctx context.Context, id string) (response TagGroupResponse, err
 }
 
 // CreateTagGroup/UpdateTagGroup/DeleteTagGroup are deliberately NOT
-// implemented. A live probe (2026-09-18) against a real Planning Center dev
-// org attempted POST /services/v2/tag_groups with a plausible JSON:API body
-// (`{"data":{"type":"TagGroup","attributes":{"name":"..."}}}`) from a normal
-// signed-in session and got back 403 Forbidden ("cannot create a
-// TagGroup") - meaning both the actual required request body shape AND the
-// PCO permission tier needed to create one are unconfirmed. Don't guess the
-// body shape from JSON:API convention (this package's own AssignSongTags,
-// in tags.go, already turned out not to follow the "obvious" shape for a
-// different tag endpoint) - re-verify live from a higher-permission PCO
-// session before adding writes here.
+// implemented - this looks like a resource PCO keeps off the OAuth write
+// surface entirely (the same shape as this SDK's Needed Positions quirk),
+// not a solvable permission question. POST /services/v2/tag_groups 403'd
+// ("cannot create a TagGroup") for two separate real accounts on two
+// different days (2026-09-18, 2026-09-19). The second attempt ruled out
+// every softer explanation live: the signed-in person held the Services
+// Administrator role in that exact org, the org already had real tag
+// groups (not an empty-org quirk), creating the same tag group by hand
+// worked fine in PCO's own Services UI as that admin, and
+// GET /people/v2/tag_groups 404s (confirming /services/v2/tag_groups -
+// which 403s, not 404s - is the right resource, just not writable this
+// way). Don't guess the body shape from JSON:API convention (this
+// package's own AssignSongTags, in tags.go, already turned out not to
+// follow the "obvious" shape for a different tag endpoint) - if this ever
+// needs revisiting, it's PCO's API surface that would need to change, not
+// the caller's permission level.
