@@ -501,7 +501,7 @@ blockouts, err := pco.GetBlockouts(ctx, personID, &pco.BlockoutsParams{Filter: "
 
 **[tagGroups.go](../tagGroups.go), [tags.go](../tags.go)**
 
-A Tag Group is an org-configured category of tags (e.g. "Type", "Service", "Team"), each scoped to one taggable kind via `TagsFor` (`"song"`, `"arrangement"`, `"person"`, `"media"` observed live - a plain string, not an enum, since PCO may support more). A Tag is one option within a group (e.g. "Chorus" under "Type"). Tag Groups are top-level; Tags are read either nested under their group or, independently, as whatever's currently assigned to one song. All shapes below confirmed live (2026-09-18) against a real dev org.
+A Tag Group is an org-configured category of tags (e.g. "Type", "Service", "Team"), each scoped to one taggable kind via `TagsFor` (`"song"`, `"arrangement"`, `"person"`, `"media"` observed live - a plain string, not an enum, since PCO may support more). A Tag is one option within a group (e.g. "Chorus" under "Type"). Tag Groups are top-level; Tags are read either nested under their group or, independently, as whatever's currently assigned to one song or person. All shapes below confirmed live (2026-09-18, `GetPersonTags` 2026-09-20) against a real dev org.
 
 | Function | Notes |
 |---|---|
@@ -510,16 +510,19 @@ A Tag Group is an org-configured category of tags (e.g. "Type", "Service", "Team
 | `GetTags(ctx context.Context, tagGroupID string, params *TagsParams) (TagListResponse, error)` | `params` may be `nil`. A group's own tags, as an alternative to `GetTagGroups`' `Include`. |
 | `GetSongTags(ctx context.Context, songID string) (TagListResponse, error)` | A song's currently-assigned tags across every tag group. |
 | `AssignSongTags(ctx context.Context, songID string, tagIDs []string) error` | See below - the one non-obvious shape in this SDK. |
+| `GetPersonTags(ctx context.Context, personID string) (TagListResponse, error)` | A person's currently-assigned tags across every tag group ([people_tags.go](../people_tags.go)) - `services/v2/people/{id}/tags`, mirroring `blockoutsPath`'s Services-side "people" nesting (`blockouts.go`), not the People app's own `people/v2/people`. No `AssignPersonTags` yet - the Person-side `assign_tags` shape hasn't been probed live. |
 
 ```go
 groups, err := pco.GetTagGroups(ctx, &pco.TagGroupsParams{Include: []string{"tags"}})
 
 tags, err := pco.GetSongTags(ctx, songID)
+
+personTags, err := pco.GetPersonTags(ctx, personID)
 ```
 
 `TagGroupAttributes.ServiceTypeFolderName` is a `*string` (observed `null` live) rather than a plain string, since PCO's docs don't say null and `""` mean the same thing here. `TagGroupRelationships.Tags` and `TagRelationships.TagGroup` are plain `HasManyRelationship`/`HasOneRelationship` - bare resource identifiers only, no attributes - the same shape `PersonRelationships` already uses in `people.go`.
 
-**`CreateTagGroup`/`UpdateTagGroup`/`DeleteTagGroup` are deliberately not implemented.** A live probe attempting `POST /services/v2/tag_groups` with a plausible JSON:API body got `403 Forbidden` ("cannot create a TagGroup") from a normal signed-in session - both the real request body shape and the PCO permission tier required are unconfirmed. Don't guess this from JSON:API convention; re-verify live from a higher-permission session first.
+**`CreateTagGroup`/`UpdateTagGroup`/`DeleteTagGroup` are deliberately not implemented** - this looks like another instance of the same OAuth-write-restriction pattern as Needed Positions (this doc) and Services-side Person creation just above (`"cannot create a Person"`): creatable by hand in PCO's own UI, rejected via the API regardless of the caller's role. `POST /services/v2/tag_groups` 403'd ("cannot create a TagGroup") for two separate real accounts on two different days - the second attempt, run directly by an account holder confirmed to have the Services Administrator role, ruled out every softer explanation: not a role gap, not an empty-org quirk (the org already had real tag groups), not a wrong-endpoint guess (`/people/v2/tag_groups` 404s; `/services/v2/tag_groups` 403s, meaning it's the right resource), and creating the same tag group by hand worked fine in PCO's own Services UI for that same admin. Don't guess the body shape from JSON:API convention; this isn't expected to become buildable without PCO changing what their API allows.
 
 **`AssignSongTags` does not take the shape you'd expect.** `POST /services/v2/songs/{songID}/assign_tags` rejects both a flat attribute body (`{"data":{"attributes":{"tag_ids":[...]}}}` → 400, `"Can't assign nil tags, please pass tag_ids you want to assign"`) and a bare-array body (`{"data":[...]}` → 422, `"Resource object must be an object"`). The only shape that works is a `relationships.tags.data` array on a single `TagGroup`-typed data object:
 
